@@ -23,6 +23,8 @@
 
 namespace parallel_primitives {
 
+    using index_t = uint64_t;
+
     template<class ... args>
     struct nothing_matched : std::false_type {
     };
@@ -35,7 +37,7 @@ namespace parallel_primitives {
 
     template<typename T, typename func>
     constexpr static inline T get_init() {
-        if constexpr(std::is_same_v < func, sycl::plus<>> && std::is_arithmetic_v < T >) {
+        if constexpr(std::is_same_v<func, sycl::plus<>> && std::is_arithmetic_v<T>) {
             return T{};
         } else if constexpr (std::is_same_v<func, sycl::multiplies<>>) {
             return T{1};

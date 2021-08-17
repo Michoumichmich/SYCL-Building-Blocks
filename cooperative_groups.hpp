@@ -171,7 +171,7 @@ public:
 template<typename KernelName>
 sycl::nd_range<1> get_max_occupancy(sycl::queue &q, size_t local_mem = 0) {
     sycl::kernel_id id = sycl::get_kernel_id<KernelName>();
-    auto kernel = get_kernel_bundle<sycl::bundle_state::executable>(q.get_context()).get_kernel(id);
+    auto kernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(q.get_context()).get_kernel(id);
     size_t private_mem_size = kernel.template get_info<sycl::info::kernel_device_specific::private_mem_size>(q.get_device());
     size_t registers = private_mem_size / 2; // find a way to get that value
     //printf("Kernel private mem size: %lu", private_mem_size);

@@ -100,7 +100,7 @@ namespace parallel_primitives {
 
 
     template<scan_type type, typename func, typename T>
-    void cooperative_scan_device(sycl::queue &q, T *output, const T *input, index_t length) {
+    void cooperative_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
         std::chrono::time_point<std::chrono::steady_clock> start_ct1;
         std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
         start_ct1 = std::chrono::steady_clock::now();
@@ -114,13 +114,13 @@ namespace parallel_primitives {
     }
 
     template<scan_type type, typename func, typename T>
-    void cooperative_scan(sycl::queue &q, T *output, const T *input, index_t length) {
+    void cooperative_scan(sycl::queue &q, const T *input, T *output, index_t length) {
         auto d_out = sycl::malloc_device<T>(length, q);
         auto d_in = sycl::malloc_device<T>(length, q);
 
         q.memcpy(d_in, input, length * sizeof(T)).wait();
 
-        cooperative_scan_device<type, func>(q, d_out, d_in, length);
+        cooperative_scan_device<type, func>(q, d_in, d_out, length);
 
         q.memcpy(output, d_out, length * sizeof(T)).wait();
 

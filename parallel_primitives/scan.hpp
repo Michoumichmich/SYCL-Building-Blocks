@@ -2,7 +2,6 @@
  * Inspired from git@github.com:mattdean1/cuda.git
  */
 
-
 #pragma once
 
 #include "common.h"
@@ -10,14 +9,11 @@
 #define LOG_MEM_BANKS 5
 #define CONFLICT_FREE_OFFSET(n) ((n) >> LOG_MEM_BANKS)
 
-using index_t = uint64_t;
-
-constexpr index_t THREADS_PER_BLOCK = 512;
-constexpr index_t ELEMENTS_PER_BLOCK = THREADS_PER_BLOCK * 2;
-
 namespace parallel_primitives {
-
     namespace internal {
+        constexpr index_t THREADS_PER_BLOCK = 512;
+        constexpr index_t ELEMENTS_PER_BLOCK = THREADS_PER_BLOCK * 2;
+
         template<typename func, typename T, int dim>
         static void prescan_large_even(T *output, const T *input, T *reduced, const sycl::nd_item<dim> &item, local_accessor<T, 1> local) {
             const static func op{};
@@ -178,7 +174,7 @@ namespace parallel_primitives {
 
 
     template<scan_type type, typename func, typename T>
-    void scan(sycl::queue &q, T *output, T *input, index_t length) {
+    void scan(sycl::queue &q, const T *input, T *output, index_t length) {
         index_t alloc_length = length;
         index_t offset = 0;
 
@@ -197,7 +193,7 @@ namespace parallel_primitives {
         std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
         start_ct1 = std::chrono::steady_clock::now();
 
-        if (length > ELEMENTS_PER_BLOCK) {
+        if (length > internal::ELEMENTS_PER_BLOCK) {
             internal::scanLargeDeviceArray<func>(q, d_out, d_in, length);
         } else {
             internal::scanSmallDeviceArray<func>(q, d_out, d_in, length);
