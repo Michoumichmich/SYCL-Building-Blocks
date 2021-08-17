@@ -45,7 +45,7 @@ namespace parallel_primitives {
         }
 
         template<scan_type type, typename func, typename T>
-        static inline void scan_cooperative_device(sycl::queue &q, T *d_out, const T *d_in, index_t length, sycl::nd_range<1> kernel_range) {
+        static inline void scan_cooperative_device(sycl::queue &q, const T *d_in, T *d_out, index_t length, sycl::nd_range<1> kernel_range) {
             auto grid_barrier = nd_range_barrier<1>::make_barrier(q, kernel_range);
             auto all_but_first_barrier = nd_range_barrier<1>::make_barrier(q, kernel_range, [](size_t i) { return i != 0; });
 
@@ -106,7 +106,7 @@ namespace parallel_primitives {
         start_ct1 = std::chrono::steady_clock::now();
 
         sycl::nd_range<1> kernel_parameters = get_max_occupancy<internal::cooperative_scan_kernel<type, func, T>>(q);
-        internal::scan_cooperative_device<type, func>(q, output, input, length, kernel_parameters);
+        internal::scan_cooperative_device<type, func>(q, input, output, length, kernel_parameters);
 
         stop_ct1 = std::chrono::steady_clock::now();
         double elapsedTime = std::chrono::duration<double, std::milli>(stop_ct1 - start_ct1).count();

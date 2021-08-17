@@ -15,7 +15,7 @@ namespace parallel_primitives {
         constexpr index_t ELEMENTS_PER_BLOCK = THREADS_PER_BLOCK * 2;
 
         template<typename func, typename T, int dim>
-        static void prescan_large_even(T *output, const T *input, T *reduced, const sycl::nd_item<dim> &item, local_accessor<T, 1> local) {
+        static void prescan_large_even(const T *input, T *output, T *reduced, const sycl::nd_item<dim> &item, sycl::accessor<T, dim, sycl::access_mode::read_write, sycl::access::target::local> local) {
             const static func op{};
             index_t blockID = item.get_group_linear_id();
             index_t threadID = item.get_local_linear_id();
@@ -88,7 +88,7 @@ namespace parallel_primitives {
         }
 
         template<typename func, typename T>
-        static inline void scanLargeDeviceArray(sycl::queue &q, T *d_out, const T *d_in, index_t length);
+        static inline void scanLargeDeviceArray(sycl::queue &q, const T *d_in, T *d_out, index_t length);
 
         template<typename func, typename T>
         static inline void scanSmallDeviceArray(sycl::queue &q, T *d_out, const T *d_in, index_t length) {
@@ -102,7 +102,7 @@ namespace parallel_primitives {
         }
 
         template<typename func, typename T>
-        static inline void scanLargeEvenDeviceArray(sycl::queue &q, T *d_out, const T *d_in, index_t length) {
+        static inline void scanLargeEvenDeviceArray(sycl::queue &q, const T *d_in, T *d_out, index_t length) {
             const index_t blocks = length / ELEMENTS_PER_BLOCK;
             auto d_sums = sycl::malloc_device<T>(blocks, q);
             auto d_incr = sycl::malloc_device<T>(blocks, q);
@@ -118,7 +118,7 @@ namespace parallel_primitives {
                 cgh.parallel_for(
                         sycl::nd_range<1>(sycl::range<1>(blocks * THREADS_PER_BLOCK), sycl::range<1>(THREADS_PER_BLOCK)),
                         [=](sycl::nd_item<1> item) {
-                            prescan_large_even<func>(d_out, d_in, d_sums, item, local_acc);
+                            prescan_large_even<func>(d_in, d_out, d_sums, item, local_acc);
                         });
             }).wait();
 
@@ -126,7 +126,7 @@ namespace parallel_primitives {
             const index_t sumsArrThreadsNeeded = (blocks + 1) / 2;
             if (sumsArrThreadsNeeded > THREADS_PER_BLOCK) {
                 // perform a large scan on the sums arr
-                scanLargeDeviceArray<func>(q, d_incr, d_sums, blocks);
+                scanLargeDeviceArray<func>(q, d_sums, d_incr, blocks);
             } else {
                 // only need one block to scan sums arr so can use small scan
                 scanSmallDeviceArray<func>(q, d_incr, d_sums, blocks);
@@ -145,14 +145,14 @@ namespace parallel_primitives {
         }
 
         template<typename func, typename T>
-        static inline void scanLargeDeviceArray(sycl::queue &q, T *d_out, const T *d_in, index_t length) {
+        static inline void scanLargeDeviceArray(sycl::queue &q, const T *d_in, T *d_out, index_t length) {
             index_t remainder = length % ELEMENTS_PER_BLOCK;
             if (remainder == 0) {
-                scanLargeEvenDeviceArray<func>(q, d_out, d_in, length);
+                scanLargeEvenDeviceArray<func>(q, d_in, d_out, length);
             } else {
                 // perform a large scan on a compatible multiple of elements
                 index_t lengthMultiple = length - remainder;
-                scanLargeEvenDeviceArray<func>(q, d_out, d_in, lengthMultiple);
+                scanLargeEvenDeviceArray<func>(q, d_in, d_out, lengthMultiple);
 
                 // scan the remaining elements and add the (inclusive) last element of the large scan to this
                 T *startOfOutputArray = d_out + lengthMultiple;
@@ -194,7 +194,7 @@ namespace parallel_primitives {
         start_ct1 = std::chrono::steady_clock::now();
 
         if (length > internal::ELEMENTS_PER_BLOCK) {
-            internal::scanLargeDeviceArray<func>(q, d_out, d_in, length);
+            internal::scanLargeDeviceArray<func>(q, d_in, d_out, length);
         } else {
             internal::scanSmallDeviceArray<func>(q, d_out, d_in, length);
         }
