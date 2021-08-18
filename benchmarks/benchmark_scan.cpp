@@ -22,7 +22,7 @@ void basel_problem_cooperative_scan(benchmark::State &state) {
 
     for (auto _ : state) {
         cooperative_scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, state.range(0));
-        state.SetBytesProcessed(sizeof(float) * state.range(0));
+        state.SetItemsProcessed(state.range(0));
     }
 }
 
@@ -40,7 +40,7 @@ void basel_problem_regular_scan(benchmark::State &state) {
 
     for (auto _ : state) {
         internal::scanLargeDeviceArray<sycl::plus<>>(q, in, out, state.range(0));
-        state.SetBytesProcessed(sizeof(float) * state.range(0));
+        state.SetItemsProcessed(state.range(0));
     }
 }
 

@@ -75,6 +75,10 @@ namespace parallel_primitives {
                                 }
                             }
 
+                            if (group_count == 1) {
+                                return;
+                            }
+
                             // Second pass: compute the intermediary sums
                             grid_barrier->wait(item);
                             T prev = get_init<T, func>();
@@ -104,13 +108,18 @@ namespace parallel_primitives {
 //        std::chrono::time_point<std::chrono::steady_clock> start_ct1;
 //        std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
 //        start_ct1 = std::chrono::steady_clock::now();
-
         sycl::nd_range<1> kernel_parameters = get_max_occupancy<internal::cooperative_scan_kernel<type, func, T>>(q);
         internal::scan_cooperative_device<type, func>(q, input, output, length, kernel_parameters);
-
 //        stop_ct1 = std::chrono::steady_clock::now();
 //        double elapsedTime = std::chrono::duration<double, std::milli>(stop_ct1 - start_ct1).count();
 //        printf("Time in cooperative scan: %f \n", elapsedTime);
+    }
+
+    template<scan_type type, typename func, typename T>
+    void group_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
+        sycl::range<1> work_items = q.get_device().get_info<sycl::info::device::max_work_group_size>();
+        sycl::nd_range<1> kernel_parameters = sycl::nd_range(work_items, work_items);
+        internal::scan_cooperative_device<type, func>(q, input, output, length, kernel_parameters);
     }
 
     template<scan_type type, typename func, typename T>
