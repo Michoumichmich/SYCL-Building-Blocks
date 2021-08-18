@@ -101,16 +101,16 @@ namespace parallel_primitives {
 
     template<scan_type type, typename func, typename T>
     void cooperative_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
-        std::chrono::time_point<std::chrono::steady_clock> start_ct1;
-        std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
-        start_ct1 = std::chrono::steady_clock::now();
+//        std::chrono::time_point<std::chrono::steady_clock> start_ct1;
+//        std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
+//        start_ct1 = std::chrono::steady_clock::now();
 
         sycl::nd_range<1> kernel_parameters = get_max_occupancy<internal::cooperative_scan_kernel<type, func, T>>(q);
         internal::scan_cooperative_device<type, func>(q, input, output, length, kernel_parameters);
 
-        stop_ct1 = std::chrono::steady_clock::now();
-        double elapsedTime = std::chrono::duration<double, std::milli>(stop_ct1 - start_ct1).count();
-        printf("Time in cooperative scan: %f \n", elapsedTime);
+//        stop_ct1 = std::chrono::steady_clock::now();
+//        double elapsedTime = std::chrono::duration<double, std::milli>(stop_ct1 - start_ct1).count();
+//        printf("Time in cooperative scan: %f \n", elapsedTime);
     }
 
     template<scan_type type, typename func, typename T>

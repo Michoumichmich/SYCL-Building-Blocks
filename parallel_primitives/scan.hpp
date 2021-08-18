@@ -185,13 +185,13 @@ namespace parallel_primitives {
 
         auto d_out = sycl::malloc_device<T>(alloc_length, q);
         auto d_in = sycl::malloc_device<T>(alloc_length, q);
-        q.memcpy(d_out, output, length * sizeof(T)).wait();
+//        q.memcpy(d_out, output, length * sizeof(T)).wait();
         q.memcpy(d_in, input, length * sizeof(T)).wait();
 
 
-        std::chrono::time_point<std::chrono::steady_clock> start_ct1;
-        std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
-        start_ct1 = std::chrono::steady_clock::now();
+//        std::chrono::time_point<std::chrono::steady_clock> start_ct1;
+//        std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
+//        start_ct1 = std::chrono::steady_clock::now();
 
         if (length > internal::ELEMENTS_PER_BLOCK) {
             internal::scanLargeDeviceArray<func>(q, d_in, d_out, length);
@@ -199,9 +199,9 @@ namespace parallel_primitives {
             internal::scanSmallDeviceArray<func>(q, d_out, d_in, length);
         }
 
-        stop_ct1 = std::chrono::steady_clock::now();
-        double elapsedTime = std::chrono::duration<double, std::milli>(stop_ct1 - start_ct1).count();
-        printf("Time regular scan: %f \n", elapsedTime);
+//        stop_ct1 = std::chrono::steady_clock::now();
+//        double elapsedTime = std::chrono::duration<double, std::milli>(stop_ct1 - start_ct1).count();
+//        printf("Time regular scan: %f \n", elapsedTime);
 
         q.memcpy(output, d_out + offset, length * sizeof(T)).wait();
 

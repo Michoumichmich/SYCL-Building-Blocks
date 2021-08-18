@@ -35,21 +35,26 @@ namespace parallel_primitives {
     }
 
 
+    template<typename T>
+    constexpr bool is_sycl_arithmetic() {
+        return std::is_arithmetic_v<T> || std::is_same_v<T, sycl::half>;
+    }
+
     template<typename T, typename func>
     constexpr static inline T get_init() {
-        if constexpr(std::is_same_v<func, sycl::plus<>> && std::is_arithmetic_v<T>) {
+        if constexpr(std::is_same_v<func, sycl::plus<>> && is_sycl_arithmetic<T>()) {
             return T{};
-        } else if constexpr (std::is_same_v<func, sycl::multiplies<>>) {
+        } else if constexpr (std::is_same_v<func, sycl::multiplies<>> && is_sycl_arithmetic<T>()) {
             return T{1};
         } else if constexpr((std::is_same_v<func, sycl::bit_or<>> || std::is_same_v<func, sycl::bit_xor<>>) && std::is_unsigned_v<T>) {
             return T{};
         } else if constexpr (std::is_same_v<func, sycl::bit_and<>> && std::is_unsigned_v<T>) {
             return ~T{};
-        } else if constexpr (std::is_same_v<func, sycl::minimum<>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity()) {
+        } else if constexpr (std::is_same_v<func, sycl::minimum<>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity) {
             return std::numeric_limits<T>::infinity(); // +INF only for floating point that has infinity
-        } else if constexpr (std::is_same_v<func, sycl::minimum<>> && !std::numeric_limits<T>::has_infinity()) {
+        } else if constexpr (std::is_same_v<func, sycl::minimum<>> && !std::numeric_limits<T>::has_infinity) {
             return std::numeric_limits<T>::max();
-        } else if constexpr (std::is_same_v<func, sycl::maximum<>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity()) {
+        } else if constexpr (std::is_same_v<func, sycl::maximum<>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity) {
             return -std::numeric_limits<T>::infinity(); // -INF only for floating point that has infinity
         } else if constexpr (std::is_same_v<func, sycl::maximum<>>) {
             return std::numeric_limits<T>::lowest();
