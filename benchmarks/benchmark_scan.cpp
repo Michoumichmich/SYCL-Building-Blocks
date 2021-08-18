@@ -9,39 +9,42 @@
  * Sum should converge to PI
  */
 void basel_problem_cooperative_scan(benchmark::State &state) {
-    sycl::queue q{sycl::gpu_selector{}};
+    static sycl::queue q{sycl::gpu_selector{}};
     using namespace parallel_primitives;
-    constexpr size_t arr_size = 500'000'000;
-    auto in = sycl::malloc_shared<float>(arr_size, q);
-    auto out = sycl::malloc_shared<float>(arr_size, q);
+    auto in = sycl::malloc_shared<float>(state.range(0), q);
+    auto out = sycl::malloc_shared<float>(state.range(0), q);
 
-    for (size_t i = 0; i < arr_size; ++i) {
+    for (size_t i = 0; i < state.range(0); ++i) {
         auto idx = (double) (i + 1);
         in[i] = 1. / (idx * idx);
     }
 
     for (auto _ : state) {
         cooperative_scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, state.range(0));
-        state.SetItemsProcessed(state.range(0));
     }
+    state.SetItemsProcessed(state.range(0));
+    sycl::free(in, q);
+    sycl::free(out, q);
 }
 
-void basel_problem_regular_scan(benchmark::State &state) {
-    sycl::queue q{sycl::gpu_selector{}};
-    using namespace parallel_primitives;
-    constexpr size_t arr_size = 500'000'000;
-    auto in = sycl::malloc_shared<float>(arr_size, q);
-    auto out = sycl::malloc_shared<float>(arr_size, q);
 
-    for (size_t i = 0; i < arr_size; ++i) {
+void basel_problem_regular_scan(benchmark::State &state) {
+    static sycl::queue q{sycl::gpu_selector{}};
+    using namespace parallel_primitives;
+    auto in = sycl::malloc_shared<float>(state.range(0), q);
+    auto out = sycl::malloc_shared<float>(state.range(0), q);
+
+    for (size_t i = 0; i < state.range(0); ++i) {
         auto idx = (double) (i + 1);
         in[i] = 1. / (idx * idx);
     }
 
     for (auto _ : state) {
         internal::scanLargeDeviceArray<sycl::plus<>>(q, in, out, state.range(0));
-        state.SetItemsProcessed(state.range(0));
     }
+    state.SetItemsProcessed(state.range(0));
+    sycl::free(in, q);
+    sycl::free(out, q);
 }
 
 
