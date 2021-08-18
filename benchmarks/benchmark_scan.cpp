@@ -1,8 +1,5 @@
-#include "../intrinsics.hpp"
-
 #include "../parallel_primitives/scan.hpp"
 #include "../parallel_primitives/scan_cooperative.hpp"
-
 #include <benchmark/benchmark.h>
 
 /**
