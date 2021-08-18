@@ -20,7 +20,6 @@
 #pragma once
 
 #include "common.h"
-#include "../cooperative_groups.hpp"
 #include <numeric>
 
 namespace parallel_primitives {
@@ -49,7 +48,7 @@ namespace parallel_primitives {
 
     template<typename func, typename T>
     T reduce_device(sycl::queue &q, const T *input, index_t length) {
-        size_t max_items = (uint32_t) std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>() / 2);
+        size_t max_items = (uint32_t) std::min(4096ul, std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>()));
         size_t max_groups = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
         sycl::nd_range<1> kernel_parameters(max_items * max_groups, max_items);
         return internal::reduce_device_impl<func>(q, input, length, kernel_parameters);
