@@ -1,5 +1,5 @@
-#include "../parallel_primitives/scan.hpp"
-#include "../parallel_primitives/scan_cooperative.hpp"
+#include <parallel_primitives/scan.hpp>
+#include <parallel_primitives/scan_cooperative.hpp>
 #include <benchmark/benchmark.h>
 
 /**
@@ -13,13 +13,16 @@ void basel_problem_cooperative_scan(benchmark::State &state) {
 
     for (size_t i = 0; i < state.range(0); ++i) {
         auto idx = (double) (i + 1);
-        in[i] = 1. / (idx * idx);
+        in[i] = (float) (1. / (idx * idx));
     }
 
     for (auto _ : state) {
         cooperative_scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, state.range(0));
     }
     state.SetItemsProcessed(state.range(0));
+    std::stringstream str;
+    str << "Result: " << std::sqrt(6 * (double) out[state.range(0) - 1]);
+    state.SetLabel(str.str());
     sycl::free(in, q);
     sycl::free(out, q);
 }
@@ -33,13 +36,16 @@ void basel_problem_regular_scan(benchmark::State &state) {
 
     for (size_t i = 0; i < state.range(0); ++i) {
         auto idx = (double) (i + 1);
-        in[i] = 1. / (idx * idx);
+        in[i] = (float) (1. / (idx * idx));
     }
 
     for (auto _ : state) {
-        internal::scanLargeDeviceArray<sycl::plus<>>(q, in, out, state.range(0));
+        scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, state.range(0));
     }
     state.SetItemsProcessed(state.range(0));
+    std::stringstream str;
+    str << "Result: " << std::sqrt(6 * (double) out[state.range(0) - 1]);
+    state.SetLabel(str.str());
     sycl::free(in, q);
     sycl::free(out, q);
 }

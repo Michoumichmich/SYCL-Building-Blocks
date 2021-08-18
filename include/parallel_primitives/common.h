@@ -71,4 +71,18 @@ namespace parallel_primitives {
 
     template<typename T, int dim>
     using local_accessor = sycl::accessor<T, dim, sycl::access_mode::read_write, sycl::access::target::local>;
+
+    static inline size_t get_group_work_size(const size_t &group_count, const size_t &group_id, const size_t &length) {
+        size_t work_per_group = length / group_count;
+        size_t remainder = length % group_count;
+        if (group_id < remainder) return work_per_group + 1;
+        return work_per_group;
+    }
+
+    static inline size_t get_cumulative_work_size(const size_t &group_count, const size_t &group_id, const size_t &length) {
+        size_t even_work_group = group_id * (length / group_count);
+        size_t remainder = length % group_count;
+        size_t extra_previous_work = sycl::min(group_id, remainder);
+        return even_work_group + extra_previous_work;
+    }
 }

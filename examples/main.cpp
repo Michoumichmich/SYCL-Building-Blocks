@@ -1,7 +1,7 @@
-#include "../intrinsics.hpp"
+#include "../include/intrinsics.hpp"
 
-#include "../parallel_primitives/scan.hpp"
-#include "../parallel_primitives/scan_cooperative.hpp"
+#include "../include/parallel_primitives/scan.hpp"
+#include "../include/parallel_primitives/scan_cooperative.hpp"
 
 /**
  * Sum should converge to PI

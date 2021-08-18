@@ -19,7 +19,6 @@
 
 #pragma once
 
-
 #include "common.h"
 #include "../cooperative_groups.hpp"
 #include <numeric>

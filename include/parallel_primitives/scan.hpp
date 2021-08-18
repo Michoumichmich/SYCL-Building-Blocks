@@ -28,43 +28,27 @@ namespace parallel_primitives {
     namespace internal {
 
         template<scan_type t, typename T, typename func>
-        struct cooperative_scan_kernel;
+        struct scan_kernel_prescan;
 
-        static inline size_t get_group_work_size(const size_t &group_count, const size_t &group_id, const size_t &length) {
-            size_t work_per_group = length / group_count;
-            size_t remainder = length % group_count;
-            if (group_id < remainder) return work_per_group + 1;
-            return work_per_group;
-        }
-
-        static inline size_t get_cumulative_work_size(const size_t &group_count, const size_t &group_id, const size_t &length) {
-            size_t even_work_group = group_id * (length / group_count);
-            size_t remainder = length % group_count;
-            size_t extra_previous_work = sycl::min(group_id, remainder);
-            return even_work_group + extra_previous_work;
-        }
+        template<scan_type t, typename T, typename func>
+        struct scan_kernel_propagate;
 
         template<scan_type type, typename func, typename T>
-        static inline void scan_cooperative_device(sycl::queue &q, const T *d_in, T *d_out, index_t length, sycl::nd_range<1> kernel_range) {
-            auto grid_barrier = nd_range_barrier<1>::make_barrier(q, kernel_range);
-            auto all_but_first_barrier = nd_range_barrier<1>::make_barrier(q, kernel_range, [](size_t i) { return i != 0; });
+        static inline void scan_device_impl(sycl::queue &q, const T *d_in, T *d_out, index_t length, sycl::nd_range<1> kernel_range) {
+            const size_t group_count = kernel_range.get_group_range().size();
 
             q.submit([&](sycl::handler &cgh) {
-                cgh.parallel_for<cooperative_scan_kernel<type, func, T>>(
+                cgh.parallel_for<scan_kernel_prescan<type, func, T>>(
                         kernel_range,
-                        [length, d_in, d_out, grid_barrier, all_but_first_barrier](sycl::nd_item<1> item) {
+                        [length, d_in, d_out](sycl::nd_item<1> item) {
                             const func op{};
                             const size_t group_id = item.get_group_linear_id();
-                            const size_t item_local_offset = item.get_local_linear_id();
                             const size_t group_count = item.get_group_range().size();
-                            const size_t group_size = item.get_local_range().size();
                             const size_t group_global_offset = get_cumulative_work_size(group_count, group_id, length);
                             const size_t this_work_size = get_group_work_size(group_count, group_id, length);
-
                             const T *group_in = d_in + group_global_offset;
                             T *group_out = d_out + group_global_offset;
-
-                            // First pass: inclusive scans
+                            // First pass: scans
                             if (group_global_offset + this_work_size <= length) {
                                 if constexpr(type == scan_type::inclusive) {
                                     sycl::joint_inclusive_scan(item.get_group(), group_in, group_in + this_work_size, group_out, op, get_init<T, func>());
@@ -74,22 +58,39 @@ namespace parallel_primitives {
                                     fail_to_compile<type, T, func>();
                                 }
                             }
+                        });
+            }).wait();
 
-                            if (group_count == 1) {
-                                return;
-                            }
+            const func op{};
+            if (group_count == 1) {
+                return;
+            }
 
-                            // Second pass: compute the intermediary sums
-                            grid_barrier->wait(item);
-                            T prev = get_init<T, func>();
-                            if (group_global_offset + this_work_size <= length) {
-                                for (size_t c = 1; c <= group_id; c++) {
-                                    prev = op(prev, d_out[get_cumulative_work_size(group_count, c, length) - 1]);
-                                }
-                            }
+            std::vector<T> partial_scans(group_count, get_init<T, func>());
+            for (size_t c = 1; c <= group_count; c++) {
+                partial_scans[c] = op(partial_scans[c - 1], d_out[get_cumulative_work_size(group_count, c, length) - 1]);
+            }
+            sycl::buffer<T> partial_scans_b(partial_scans.data(), sycl::range(group_count));
 
-                            // Third phase: propagate the results
-                            all_but_first_barrier->wait(item); // The first group will never have to wait
+            q.submit([&](sycl::handler &cgh) {
+                auto acc = sycl::accessor<T, 1, sycl::access_mode::read, sycl::access::target::constant_buffer>(partial_scans_b, cgh);
+                cgh.parallel_for<scan_kernel_propagate<type, func, T>>(
+                        kernel_range,
+                        [length, d_in, d_out, acc](sycl::nd_item<1> item) {
+                            const func op{};
+                            const size_t group_id = item.get_group_linear_id();
+                            if (group_id == 0) return;
+                            const size_t item_local_offset = item.get_local_linear_id();
+                            const size_t group_count = item.get_group_range().size();
+                            const size_t group_size = item.get_local_range().size();
+                            const size_t group_global_offset = get_cumulative_work_size(group_count, group_id, length);
+                            const size_t this_work_size = get_group_work_size(group_count, group_id, length);
+
+                            const T *group_in = d_in + group_global_offset;
+                            T *group_out = d_out + group_global_offset;
+
+                            T prev = acc[group_id];
+
                             if (group_global_offset + this_work_size <= length) {
                                 for (size_t i = item_local_offset; i < this_work_size; i += group_size) {
                                     group_out[i] = op(group_out[i], prev);
@@ -97,42 +98,33 @@ namespace parallel_primitives {
                             }
                         });
             }).wait();
-            sycl::free(grid_barrier, q);
-            sycl::free(all_but_first_barrier, q);
         }
     }
 
 
     template<scan_type type, typename func, typename T>
-    void cooperative_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
-//        std::chrono::time_point<std::chrono::steady_clock> start_ct1;
-//        std::chrono::time_point<std::chrono::steady_clock> stop_ct1;
-//        start_ct1 = std::chrono::steady_clock::now();
-        sycl::nd_range<1> kernel_parameters = get_max_occupancy<internal::cooperative_scan_kernel<type, func, T>>(q);
-        internal::scan_cooperative_device<type, func>(q, input, output, length, kernel_parameters);
-//        stop_ct1 = std::chrono::steady_clock::now();
-//        double elapsedTime = std::chrono::duration<double, std::milli>(stop_ct1 - start_ct1).count();
-//        printf("Time in cooperative scan: %f \n", elapsedTime);
+    void scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
+        size_t max_items = (uint32_t) std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>() / 2);
+        size_t max_groups = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
+        sycl::nd_range<1> kernel_parameters(max_items * max_groups, max_items);
+        internal::scan_device_impl<type, func>(q, input, output, length, kernel_parameters);
     }
 
     template<scan_type type, typename func, typename T>
     void group_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
         sycl::range<1> work_items = q.get_device().get_info<sycl::info::device::max_work_group_size>();
         sycl::nd_range<1> kernel_parameters = sycl::nd_range(work_items, work_items);
-        internal::scan_cooperative_device<type, func>(q, input, output, length, kernel_parameters);
+        internal::scan_device_impl<type, func>(q, input, output, length, kernel_parameters);
     }
 
+
     template<scan_type type, typename func, typename T>
-    void cooperative_scan(sycl::queue &q, const T *input, T *output, index_t length) {
+    void scan(sycl::queue &q, const T *input, T *output, index_t length) {
         auto d_out = sycl::malloc_device<T>(length, q);
         auto d_in = sycl::malloc_device<T>(length, q);
-
         q.memcpy(d_in, input, length * sizeof(T)).wait();
-
         cooperative_scan_device<type, func>(q, d_in, d_out, length);
-
         q.memcpy(output, d_out, length * sizeof(T)).wait();
-
         sycl::free(d_out, q);
         sycl::free(d_in, q);
     }
