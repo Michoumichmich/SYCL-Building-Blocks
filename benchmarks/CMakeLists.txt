@@ -37,11 +37,11 @@ FetchContent_MakeAvailable(
         googlebenchmark)
 
 add_executable(benchmark_scan benchmark_scan.cpp)
-target_link_libraries(benchmark_scan benchmark::benchmark)
+target_link_libraries(benchmark_scan PRIVATE benchmark::benchmark)
 add_sycl_to_target(TARGET benchmark_scan SOURCES benchmark_scan.cpp)
 
 add_executable(benchmark_reduce benchmark_reduce.cpp)
-target_link_libraries(benchmark_reduce benchmark::benchmark)
+target_link_libraries(benchmark_reduce PRIVATE benchmark::benchmark)
 add_sycl_to_target(TARGET benchmark_reduce SOURCES benchmark_reduce.cpp)
 
 

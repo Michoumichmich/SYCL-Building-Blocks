@@ -2,7 +2,7 @@
 #include <benchmark/benchmark.h>
 
 void reduce_benchmark(benchmark::State &state) {
-    static sycl::queue q{sycl::cpu_selector{}};
+    static sycl::queue q{sycl::gpu_selector{}};
     auto size = static_cast<size_t>(state.range(0));
     using namespace parallel_primitives;
     auto in = sycl::malloc_device<int32_t>(size, q);
