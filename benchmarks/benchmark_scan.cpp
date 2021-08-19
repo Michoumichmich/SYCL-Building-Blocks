@@ -19,7 +19,7 @@ void basel_problem_cooperative_scan(benchmark::State &state) {
     for (auto _ : state) {
         cooperative_scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, state.range(0));
     }
-    state.SetItemsProcessed(state.range(0));
+    state.SetItemsProcessed(state.iterations() * state.range(0));
     std::stringstream str;
     str << "Result: " << std::sqrt(6 * (double) out[state.range(0) - 1]);
     state.SetLabel(str.str());
@@ -42,7 +42,7 @@ void basel_problem_regular_scan(benchmark::State &state) {
     for (auto _ : state) {
         scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, state.range(0));
     }
-    state.SetItemsProcessed(state.range(0));
+    state.SetItemsProcessed(state.iterations() * state.range(0));
     std::stringstream str;
     str << "Result: " << std::sqrt(6 * (double) out[state.range(0) - 1]);
     state.SetLabel(str.str());

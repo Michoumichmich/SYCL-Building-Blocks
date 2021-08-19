@@ -13,7 +13,8 @@ void reduce_benchmark(benchmark::State &state) {
     for (auto _ : state) {
         res = reduce_device<sycl::plus<>>(q, in, size);
     }
-    state.SetItemsProcessed(state.range(0));
+
+    state.SetItemsProcessed(state.iterations() * state.range(0));
     std::stringstream str;
     str << "Result: " << res;
     state.SetLabel(str.str());
@@ -21,7 +22,7 @@ void reduce_benchmark(benchmark::State &state) {
 }
 
 
-BENCHMARK(reduce_benchmark)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(1, 2'000'000'000);
+BENCHMARK(reduce_benchmark)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(1, 1'300'000'000);
 
 // Run benchmark
 BENCHMARK_MAIN();

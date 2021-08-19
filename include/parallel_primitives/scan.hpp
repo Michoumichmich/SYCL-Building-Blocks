@@ -104,9 +104,12 @@ namespace parallel_primitives {
 
     template<scan_type type, typename func, typename T>
     void scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
-        size_t max_items = (uint32_t) std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>() / 2);
-        size_t max_groups = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
-        sycl::nd_range<1> kernel_parameters(max_items * max_groups, max_items);
+        index_t max_items = (uint32_t) std::min(4096ul, std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>())); // No more than 4096 items per reduction WG in DPC++
+        index_t sm_count = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
+        index_t work_ratio_per_item = 1024;
+        max_items = std::min(max_items, length);
+        sm_count = std::min(sm_count, (length + (work_ratio_per_item * max_items) - 1) / (work_ratio_per_item * max_items));
+        sycl::nd_range<1> kernel_parameters(max_items * sm_count, max_items);
         internal::scan_device_impl<type, func>(q, input, output, length, kernel_parameters);
     }
 
