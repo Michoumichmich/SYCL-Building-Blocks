@@ -2,19 +2,20 @@
 #include <benchmark/benchmark.h>
 
 void reduce_benchmark(benchmark::State &state) {
+    using T = float;
     static sycl::queue q{sycl::gpu_selector{}};
     auto size = static_cast<size_t>(state.range(0));
     using namespace parallel_primitives;
-    auto in = sycl::malloc_device<int32_t>(size, q);
+    auto in = sycl::malloc_device<T>(size, q);
 
-    q.fill(in, 1, size).wait();
+    q.fill(in, T(1), size).wait();
 
-    int32_t res;
+    T res;
     for (auto _ : state) {
         res = reduce_device<sycl::plus<>>(q, in, size);
     }
 
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    state.SetBytesProcessed(sizeof(T) * state.iterations() * state.range(0));
     std::stringstream str;
     str << "Result: " << res;
     state.SetLabel(str.str());

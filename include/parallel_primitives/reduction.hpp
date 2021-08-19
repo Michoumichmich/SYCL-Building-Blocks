@@ -98,7 +98,7 @@ namespace parallel_primitives {
          * We cannot submit arbitrarily big ranges for kernels. We'll use the limit of INT_MAX
          */
         T out = get_init<T, func>();
-        if (length < 100'000'000) {
+        if (length < 100'000'000 || q.get_device().is_host() || q.get_device().is_cpu()) {
             const func op{};
             index_t max_kernel_global = std::numeric_limits<int32_t>::max();
             for (index_t processed = 0; processed < length;) {
@@ -118,8 +118,8 @@ namespace parallel_primitives {
                     processed += chunk_size;
                 }
             }
-        } else {
-            index_t work_ratio_per_item = 32;
+        } else { // GPU && length > 100'000'000 works better
+            index_t work_ratio_per_item = 128;
             max_items = std::min(max_items, length);
             sm_count = std::min(sm_count, (length + (work_ratio_per_item * max_items) - 1) / (work_ratio_per_item * max_items));
             sycl::nd_range<1> kernel_parameters(max_items * sm_count, max_items);
