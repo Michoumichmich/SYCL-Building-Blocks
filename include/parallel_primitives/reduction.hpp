@@ -25,68 +25,68 @@
 namespace parallel_primitives {
     namespace internal {
 
-        template<typename T, typename func>
+        template<typename T, typename func, int N>
         struct reduction_kernel;
         template<typename T, typename func>
         struct reduction_kernel2;
 
-        template<typename func, typename T>
+        template<typename func, typename T, int N>
         static inline T reduce_device_impl(sycl::queue &q, const T *d_in, sycl::nd_range<1> kernel_range) {
             T reduced = get_init<T, func>();
             {
                 sycl::buffer<T> reducedBuf(&reduced, 1);
                 q.submit([&](sycl::handler &cgh) {
                     auto reduction = sycl::reduction(reducedBuf, cgh, func{});
-                    cgh.parallel_for<reduction_kernel<func, T>>(
+                    cgh.parallel_for<reduction_kernel<func, T, N>>(
                             kernel_range, reduction,
                             [d_in](sycl::nd_item<1> item, auto &reducer) {
-                                reducer.combine(d_in[item.get_global_linear_id()]);
-                            });
-                }).wait();
-            }
-            return reduced;
-        }
-
-        template<typename func, typename T>
-        static inline T reduce_device_impl2(sycl::queue &q, const T *d_in, sycl::nd_range<1> kernel_range, index_t length) {
-            T reduced = get_init<T, func>();
-            const size_t group_count = kernel_range.get_group_range().size();
-            const func op{};
-            std::vector<T> partial_scans(group_count, get_init<T, func>());
-            {
-                sycl::buffer<T> partial_scans_b(partial_scans.data(), sycl::range(group_count));
-
-                q.submit([&](sycl::handler &cgh) {
-                    auto acc = sycl::accessor<T, 1, sycl::access_mode::write, sycl::access::target::global_buffer>(partial_scans_b, cgh);
-                    sycl::stream os(1024, 256, cgh);
-                    cgh.parallel_for<reduction_kernel2<func, T>>(
-                            kernel_range,
-                            [length, d_in, os, acc](sycl::nd_item<1> item) {
-                                const func op{};
-                                const size_t group_id = item.get_group_linear_id();
-                                const size_t group_count = item.get_group_range().size();
-                                const size_t group_global_offset = get_cumulative_work_size(group_count, group_id, length);
-                                const size_t this_work_size = get_group_work_size(group_count, group_id, length);
-                                const T *group_in = d_in + group_global_offset;
-                                //               os << this_work_size << sycl::endl;
-                                // First pass: scans
-                                if (group_global_offset + this_work_size <= length) {
-                                    T res = sycl::joint_reduce(item.get_group(), group_in, group_in + this_work_size, get_init<T, func>(), op);
-                                    if (item.get_local_linear_id() == 0) {
-                                        acc[group_id] = res;
-                                    }
+                                const size_t size = item.get_local_range().size();
+#pragma unroll
+                                for (size_t i = 0; i < N; ++i) {
+                                    reducer.combine(d_in[i * size + item.get_global_linear_id()]);
                                 }
                             });
                 }).wait();
             }
-
-
-            for (size_t c = 0; c < group_count; c++) {
-                reduced = op(reduced, partial_scans[c]);
-            }
-
             return reduced;
         }
+
+    }
+
+
+    template<typename func, typename T, int N, int decimation_factor = 4>
+    T dispatch_kernel_call(sycl::queue &q, const T *input, index_t length, size_t max_items) {
+        static_assert(N > 0 && N <= 256);
+        const func op{};
+        T out = get_init<T, func>();
+        size_t processed = 0;
+        size_t scaled_length = length / N;
+
+        if (scaled_length > 0) {
+            index_t group_count = (scaled_length / max_items);
+            if (group_count > 0) {
+                sycl::nd_range<1> kernel_parameters(max_items * group_count, max_items);
+                out = op(out, internal::reduce_device_impl<func, T, N>(q, input, kernel_parameters));
+                processed += group_count * max_items * N;
+            } else {
+                sycl::nd_range<1> kernel_parameters(scaled_length, scaled_length);
+                out = op(out, internal::reduce_device_impl<func, T, N>(q, input, kernel_parameters));
+                processed += scaled_length * N;
+            }
+        }
+
+        if (processed != length) {
+            size_t remainder = length - processed;
+            if constexpr (N > decimation_factor) {
+                out = op(out, dispatch_kernel_call<func, T, N / decimation_factor>(q, input + processed, remainder, max_items));
+            } else {
+                out = op(out, dispatch_kernel_call<func, T, 1>(q, input + processed, remainder, max_items));
+            }
+
+            processed += remainder;
+        }
+
+        return out;
     }
 
 
@@ -98,35 +98,17 @@ namespace parallel_primitives {
          * We cannot submit arbitrarily big ranges for kernels. We'll use the limit of INT_MAX
          */
         T out = get_init<T, func>();
-        if (length < 100'000'000 || q.get_device().is_host() || q.get_device().is_cpu()) {
+        if (length < 100'000'000'000 || q.get_device().is_host() || q.get_device().is_cpu()) {
             const func op{};
             index_t max_kernel_global = std::numeric_limits<int32_t>::max();
             for (index_t processed = 0; processed < length;) {
                 index_t chunk_size = std::min(max_kernel_global, (length - processed));
-                index_t group_count = (chunk_size / max_items);
-                if (chunk_size != length - processed && group_count > sm_count) { // If there will be other to process later
-                    group_count -= group_count % sm_count; // submitting a number of groups proportional to the number of streaming multiprocessors/threads.
-                }
-                if (group_count > 0) {
-                    // printf("%d\n", max_items * group_count);
-                    sycl::nd_range<1> kernel_parameters(max_items * group_count, max_items);
-                    out = op(out, internal::reduce_device_impl<func>(q, input + processed, kernel_parameters));
-                    processed += group_count * max_items;
-                } else { //group_count == 0
-                    sycl::nd_range<1> kernel_parameters(chunk_size, chunk_size);
-                    out = op(out, internal::reduce_device_impl<func>(q, input + processed, kernel_parameters));
-                    processed += chunk_size;
-                }
+                processed += chunk_size;
+                out = op(out, dispatch_kernel_call<func, T, 64>(q, input, length, max_items));
             }
-        } else { // GPU && length > 100'000'000 works better
-            index_t work_ratio_per_item = 128;
-            max_items = std::min(max_items, length);
-            sm_count = std::min(sm_count, (length + (work_ratio_per_item * max_items) - 1) / (work_ratio_per_item * max_items));
-            sycl::nd_range<1> kernel_parameters(max_items * sm_count, max_items);
-            out = internal::reduce_device_impl2<func>(q, input, kernel_parameters, length);
 
+            return out;
         }
-        return out;
     }
 
 
