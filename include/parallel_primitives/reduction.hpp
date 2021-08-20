@@ -39,10 +39,10 @@ namespace parallel_primitives {
                             kernel_range, reduction,
                             [d_in](sycl::nd_item<1> item, auto &reducer) {
                                 const size_t size = item.get_local_range().size();
-                                const size_t id = item.get_global_linear_id();
+                                const T *in = d_in + N * item.get_group_linear_id() * size + item.get_local_linear_id();
 #pragma unroll
                                 for (size_t i = 0; i < N; ++i) {
-                                    reducer.combine(d_in[i * size + id]);
+                                    reducer.combine(in[i * size]);
                                 }
                             });
                 }).wait();
@@ -65,6 +65,7 @@ namespace parallel_primitives {
     template<typename func, typename T, int N, int decimation_factor = 4>
     T dispatch_kernel_call(sycl::queue &q, const T *input, index_t length, size_t max_items) {
         static_assert(N > 0 && N <= 256);
+        static_assert(decimation_factor > 1);
         const func op{};
         T out = get_init<T, func>();
         size_t processed = 0;
@@ -97,39 +98,44 @@ namespace parallel_primitives {
     }
 
 
-    template<typename func, typename T, bool optimised_offload = true>
+    template<typename func, typename T, bool optimised_offload = true, size_t offload_threshold = 16384>
     T reduce_device(sycl::queue &q, const T *input, index_t length) {
         index_t max_items = (uint32_t) std::min(4096ul, std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>())); // No more than 4096 items per reduction WG in DPC++
-        index_t offload_threshold = 10000;
+        const func op{};
+        T out = get_init<T, func>();
+
+        constexpr int unroll_size = 64;
+        constexpr int decimation_factor = 16;
+
         /**
          * We cannot submit arbitrarily big ranges for kernels. We'll use the limit of INT_MAX
          */
-        T out = get_init<T, func>();
-
-
-        const func op{};
         index_t max_kernel_global = std::numeric_limits<int32_t>::max();
         for (index_t processed = 0; processed < length;) {
             index_t chunk_size = std::min(max_kernel_global, (length - processed));
             processed += chunk_size;
-            if (chunk_size < offload_threshold && optimised_offload && q.get_device().is_gpu()) {
+            if (optimised_offload && chunk_size < offload_threshold && q.get_device().is_gpu()) {
                 auto tmp = (T *) calloc(chunk_size, sizeof(T));
                 q.memcpy(tmp, input, chunk_size * sizeof(T)).wait();
                 out = op(out, host_reduce<func, T>(tmp, chunk_size));
                 free(tmp);
             } else {
-                out = op(out, dispatch_kernel_call<func, T, 64>(q, input, chunk_size, max_items));
+                out = op(out, dispatch_kernel_call<func, T, unroll_size, decimation_factor>(q, input, chunk_size, max_items));
             }
         }
         return out;
     }
 
 
-    template<typename func, typename T>
-    T reduce(sycl::queue &q, const T *input, index_t length) {
+    template<typename func, typename T, bool optimised_offload = true, size_t offload_threshold = 16384>
+    T reduce(sycl::queue &q, const T *input, index_t length, index_t) {
+        if (length < offload_threshold && optimised_offload && q.get_device().is_gpu()) {
+            return host_reduce<func, T>(input, length);
+        }
+
         T *d_in = sycl::malloc_device<T>(length, q);
         q.memcpy(d_in, input, length * sizeof(T)).wait();
-        T out = reduce_device<func>(q, d_in, length);
+        T out = reduce_device<func, optimised_offload, offload_threshold>(q, d_in, length);
         sycl::free(d_in, q);
         return out;
     }
