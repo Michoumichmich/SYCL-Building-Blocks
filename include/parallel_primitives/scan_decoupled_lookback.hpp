@@ -111,8 +111,10 @@ namespace parallel_primitives {
         template<scan_type type, typename func, typename T>
         static inline void scan_decoupled_device(sycl::queue &q, const T *d_in, T *d_out, index_t length, sycl::nd_range<1> kernel_range) {
             size_t local_mem_length = q.get_device().get_info<sycl::info::device::local_mem_size>() / sizeof(T);
+            //   std::cout << local_mem_length << std::endl;
             const size_t group_size = kernel_range.get_local_range().size();
-            local_mem_length = 6 * group_size;//group_size * (local_mem_length / group_size) - 2 * group_size;
+            local_mem_length -= group_size;
+            local_mem_length = group_size * (local_mem_length / group_size);
 
             const size_t partition_count = (length + local_mem_length - 1) / local_mem_length;
             auto partitions = sycl::malloc_device<partition_descriptor<T, func>>(partition_count, q);
