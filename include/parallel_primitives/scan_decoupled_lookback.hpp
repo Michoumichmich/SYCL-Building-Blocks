@@ -79,7 +79,7 @@ namespace parallel_primitives {
         };
 
         template<scan_type type, typename T, typename func>
-        static inline T scan_over_group(const sycl::nd_item<1> &item, const size_t &length, const T *in, T *out, T init = get_init<T, func>()) {
+        static inline T scan_over_group(const sycl::nd_item<1> &item, const size_t &length, const T *in, T *out, const T init = get_init<T, func>()) {
             if constexpr(type == scan_type::inclusive) {
                 sycl::joint_inclusive_scan(item.get_group(), in, in + length, out, func{}, init);
             } else if constexpr (type == scan_type::exclusive) {
@@ -104,7 +104,7 @@ namespace parallel_primitives {
         }
 
         template<typename T, typename func>
-        static inline void store_to_global_and_increment(T *out, const size_t &length, T *acc, const size_t &thread_id, const size_t &thread_count, T init) {
+        static inline void store_to_global_and_increment(T *out, const size_t &length, T *acc, const size_t &thread_id, const size_t &thread_count, const T &init) {
             const func op{};
             for (size_t i = thread_id; i < length; i += thread_count) {
                 out[i] = op(acc[i], init);
@@ -128,16 +128,19 @@ namespace parallel_primitives {
             sycl::event init = q.fill(partitions, partition_descriptor<T, func>{}, partition_count);
 
             q.submit([&](sycl::handler &cgh) {
-                sycl::accessor<T, 1, sycl::access::mode::read_write, sycl::access::target::local> acc(sycl::range<1>(local_mem_length), cgh);
+                sycl::accessor<T, 1, sycl::access::mode::read_write, sycl::access::target::local> shared_mem(sycl::range<1>(local_mem_length), cgh);
+                sycl::accessor<T, 1, sycl::access::mode::read_write, sycl::access::target::local> shared_prefix(sycl::range<1>(1), cgh);
+                sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> shared_ready_state(sycl::range<1>(1), cgh);
                 cgh.depends_on(init);
                 cgh.parallel_for<decoupled_scan_kernel<type, func, T >>(
                         kernel_range,
-                        [length, d_in, d_out, local_mem_length, acc, partitions](sycl::nd_item<1> item) {
+                        [length, d_in, d_out, local_mem_length, shared_mem, partitions, shared_ready_state, shared_prefix](sycl::nd_item<1> item) {
                             const size_t group_id = item.get_group_linear_id();
                             const size_t thread_id = item.get_local_linear_id();
                             const size_t group_count = item.get_group_range().size();
                             const size_t group_size = item.get_local_range().size();
                             const func op{};
+                            T *shared = shared_mem.get_pointer();
 
                             for (size_t partition_id = group_id; partition_id * local_mem_length < length; partition_id += group_count) {
                                 const T *group_in = d_in + partition_id * local_mem_length;
@@ -145,21 +148,27 @@ namespace parallel_primitives {
                                 size_t this_chunk_length = sycl::min(local_mem_length, length - partition_id * local_mem_length);
                                 auto partition = partitions + partition_id;
 
-                                bool is_ready = partition_descriptor<T, func>::is_ready(partitions, partition_id);
-                                is_ready = sycl::any_of_group(item.get_group(), is_ready);
-
-                                if (is_ready) {
-                                    T aggregate = load_local_and_reduce<T, func>(item, group_in, this_chunk_length, acc.get_pointer(), thread_id, group_size);
-                                    if (thread_id == 0) partition->set_aggregate(aggregate);
-                                    T prefix = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
-                                    if (thread_id == 0) partition->set_prefix(op(aggregate, prefix));
-                                    scan_over_group<type, T, func>(item, this_chunk_length, acc.get_pointer(), group_out, prefix);
+                                if (thread_id == 0) shared_ready_state[0] = partition_descriptor<T, func>::is_ready(partitions, partition_id);
+                                //     is_ready = sycl::any_of_group(item.get_group(), is_ready);
+                                item.barrier();
+                                if (shared_ready_state[0]) {
+                                    T aggregate = load_local_and_reduce<T, func>(item, group_in, this_chunk_length, shared, thread_id, group_size);
+                                    if (thread_id == 0) {
+                                        partition->set_aggregate(aggregate);
+                                        shared_prefix[0] = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
+                                        partition->set_prefix(op(aggregate, shared_prefix[0]));
+                                    }
+                                    item.barrier();
+                                    scan_over_group<type, T, func>(item, this_chunk_length, shared, group_out, shared_prefix[0]);
                                 } else {
-                                    T aggregate = scan_over_group<type, T, func>(item, this_chunk_length, group_in, acc.get_pointer());
-                                    if (thread_id == 0) partition->set_aggregate(aggregate);
-                                    T prefix = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
-                                    if (thread_id == 0) partition->set_prefix(op(aggregate, prefix));
-                                    store_to_global_and_increment<T, func>(group_out, this_chunk_length, acc.get_pointer(), thread_id, group_size, prefix);
+                                    T aggregate = scan_over_group<type, T, func>(item, this_chunk_length, group_in, shared);
+                                    if (thread_id == 0) {
+                                        partition->set_aggregate(aggregate);
+                                        shared_prefix[0] = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
+                                        partition->set_prefix(op(aggregate, shared_prefix[0]));
+                                    }
+                                    item.barrier();
+                                    store_to_global_and_increment<T, func>(group_out, this_chunk_length, shared, thread_id, group_size, shared_prefix[0]);
                                 }
                             }
                         });
