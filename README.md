@@ -6,12 +6,11 @@ Header-based SYCL reusable algorithms and data structures.
 
 ### Decoupled lookback prefix scan
 
-Implements a modified version of the *Single-pass Parallel Prefix Scan with Decoupled Look-back* with a scan-then-propagate strategy instead of *reduce-then-scan* in order to leverage SYCL primitives. Performs at speed
-close to memcpy and has only 2n memory movements.
+Implements a modified version of the *Single-pass Parallel Prefix Scan with Decoupled Look-back* with a *scan-then-propagate* strategy instead of *reduce-then-scan* in order to leverage SYCL primitives. Performs at speeds close to `memcpy` and has only *2n* memory movements. Forward guarantees progress required.
 
 ### Cooperative Prefix Scan
 
-Implements a radix-N scan-then-propagate strategy using Kogge-Stone group-scans and propagation fans. This implementation demonstrates the use of Cooperative Groups and is thus experimenntal. The computation is performed
+Implements a *radix-N scan-then-propagate* strategy using Kogge-Stone group-scans and propagation fans. This implementation demonstrates the use of Cooperative Groups and is thus experimental. The computation is performed
 in a single kernel launch and using the whole device. The bottleneck is currently the implementation of the SYCL group algorithms.
 
 ### Reduction
