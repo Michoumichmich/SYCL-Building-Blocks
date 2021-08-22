@@ -68,11 +68,13 @@ namespace parallel_primitives {
                 return tmp;
             }
 
-            static bool is_ready(volatile partition_descriptor *ptr_base, const size_t &partition_id) {
+            static std::optional<T> is_ready(const partition_descriptor *ptr_base, const size_t &partition_id) {
                 if (partition_id == 0) {
-                    return true;
+                    return get_init<T, func>();
+                } else if (ptr_base[partition_id - 1].status_flag_ == status::prefix_available) {
+                    return ptr_base[partition_id - 1].inclusive_prefix_;
                 } else {
-                    return (ptr_base[partition_id - 1].status_flag_ == status::prefix_available);
+                    return std::nullopt;
                 }
             }
 
@@ -148,17 +150,22 @@ namespace parallel_primitives {
                                 size_t this_chunk_length = sycl::min(local_mem_length, length - partition_id * local_mem_length);
                                 auto partition = partitions + partition_id;
 
-                                if (thread_id == 0) shared_ready_state[0] = partition_descriptor<T, func>::is_ready(partitions, partition_id);
-                                //     is_ready = sycl::any_of_group(item.get_group(), is_ready);
+                                if (thread_id == 0) {
+                                    auto res = partition_descriptor<T, func>::is_ready(partitions, partition_id);
+                                    if (res) {
+                                        shared_ready_state[0] = true;
+                                        shared_prefix[0] = *res;
+                                    } else {
+                                        shared_ready_state[0] = false;
+                                    }
+                                }
                                 item.barrier();
-                                if (shared_ready_state[0]) {
+
+                                if (shared_ready_state[0] == true) {
                                     T aggregate = load_local_and_reduce<T, func>(item, group_in, this_chunk_length, shared, thread_id, group_size);
                                     if (thread_id == 0) {
-                                        partition->set_aggregate(aggregate);
-                                        shared_prefix[0] = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
                                         partition->set_prefix(op(aggregate, shared_prefix[0]));
                                     }
-                                    item.barrier();
                                     scan_over_group<type, T, func>(item, this_chunk_length, shared, group_out, shared_prefix[0]);
                                 } else {
                                     T aggregate = scan_over_group<type, T, func>(item, this_chunk_length, group_in, shared);
