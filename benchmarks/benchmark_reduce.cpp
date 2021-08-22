@@ -2,7 +2,7 @@
 #include <benchmark/benchmark.h>
 
 void reduce_benchmark(benchmark::State &state) {
-    using T = float;
+    using T = uint32_t;
     static sycl::queue q{sycl::gpu_selector{}};
     auto size = static_cast<size_t>(state.range(0));
     using namespace parallel_primitives;
@@ -34,7 +34,7 @@ void reduce_benchmark2(benchmark::State &state) {
 
     T res;
     for (auto _ : state) {
-        res = reduce_device<sycl::plus<>, T, false>(q, in, size);
+        res = reduce_device<sycl::plus<>>(q, in, size);
     }
 
     state.SetBytesProcessed(sizeof(T) * state.iterations() * state.range(0));

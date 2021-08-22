@@ -38,6 +38,9 @@ namespace parallel_primitives {
                     cgh.parallel_for<reduction_kernel<func, T, N>>(
                             kernel_range, reduction,
                             [d_in](sycl::nd_item<1> item, auto &reducer) {
+//                                const size_t size = item.get_sub_group().get_max_local_range().size();
+//                                const size_t global_offset = N * item.get_group_linear_id() * item.get_local_range().size();
+//                                const T *in = d_in + global_offset + N * size * (item.get_local_linear_id() / size) + item.get_local_linear_id() % (size);
                                 const size_t size = item.get_local_range().size();
                                 const T *in = d_in + N * item.get_group_linear_id() * size + item.get_local_linear_id();
 #pragma unroll
