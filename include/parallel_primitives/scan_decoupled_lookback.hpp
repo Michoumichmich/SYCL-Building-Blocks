@@ -22,7 +22,6 @@
 
 #include "common.h"
 #include "../cooperative_groups.hpp"
-#include <numeric>
 
 namespace parallel_primitives {
     namespace internal {
@@ -34,18 +33,20 @@ namespace parallel_primitives {
         };
 
         template<typename T, typename func>
-        struct partition_descriptor {
+        class partition_descriptor {
+        private:
             status status_flag_ = status::invalid;
             T aggregate_ = get_init<T, func>();
             T inclusive_prefix_ = get_init<T, func>();
 
-            void set_aggregate(const sycl::nd_item<1> &item, const T &aggregate) {
+        public:
+            inline void set_aggregate(const sycl::nd_item<1> &item, const T &aggregate) {
                 aggregate_ = aggregate;
                 item.barrier();
                 status_flag_ = status::aggregate_available;
             }
 
-            void set_prefix(const sycl::nd_item<1> &item, const T &prefix) {
+            inline void set_prefix(const sycl::nd_item<1> &item, const T &prefix) {
                 inclusive_prefix_ = prefix;
                 item.barrier();
                 status_flag_ = status::prefix_available;
@@ -68,17 +69,27 @@ namespace parallel_primitives {
             }
         };
 
-        template<typename T, typename func>
+        template<scan_type type, typename T, typename func>
         static inline T load_local_and_scan(const sycl::nd_item<1> &item, const T *in, const size_t &length, T *acc, const size_t &thread_id, const size_t &thread_count) {
             const func op{};
+            T last = get_init<T, func>();
             for (size_t i = thread_id; i < length; i += thread_count) {
                 T tmp = in[i];
-                sycl::inclusive_scan_over_group(item.get_group(), tmp, op);
+
+                if constexpr(type == scan_type::inclusive) {
+                    sycl::inclusive_scan_over_group(item.get_group(), tmp, op, last);
+                } else if constexpr (type == scan_type::exclusive) {
+                    sycl::exclusive_scan_over_group(item.get_group(), tmp, last, op);
+                } else {
+                    fail_to_compile<type, T, func>();
+                }
+
                 //item.barrier();
                 acc[i] = tmp;
+                last = acc[((thread_id + thread_count - 1) / thread_count) - 1];
             }
             item.barrier();
-            return acc[length - 1];
+            return last;
         }
 
         template<typename T>
@@ -113,7 +124,7 @@ namespace parallel_primitives {
             size_t local_mem_length = q.get_device().get_info<sycl::info::device::local_mem_size>() / sizeof(T);
             //   std::cout << local_mem_length << std::endl;
             const size_t group_size = kernel_range.get_local_range().size();
-            local_mem_length -= group_size;
+            local_mem_length -= group_size; // Correction for DPC++
             local_mem_length = group_size * (local_mem_length / group_size);
 
             const size_t partition_count = (length + local_mem_length - 1) / local_mem_length;
@@ -135,7 +146,7 @@ namespace parallel_primitives {
                                 T *group_out = d_out + partition_id * local_mem_length;
                                 size_t this_chunk_length = sycl::min(local_mem_length, length - partition_id * local_mem_length);
 
-                                T aggregate = load_local_and_scan<T, func>(item, group_in, this_chunk_length, acc.get_pointer(), thread_id, group_size);
+                                T aggregate = load_local_and_scan<type, T, func>(item, group_in, this_chunk_length, acc.get_pointer(), thread_id, group_size);
 
                                 auto partition = partitions + partition_id;
                                 partition->set_aggregate(item, aggregate);
@@ -144,7 +155,6 @@ namespace parallel_primitives {
 
                                 store_to_global_and_increment<T, func>(group_out, this_chunk_length, acc.get_pointer(), thread_id, group_size, prefix);
                             }
-
                         });
             }).wait();
             sycl::free(partitions, q);
