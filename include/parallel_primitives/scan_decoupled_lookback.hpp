@@ -21,6 +21,7 @@
 
 
 #include "common.h"
+#include "scan.hpp"
 #include "../cooperative_groups.hpp"
 
 namespace parallel_primitives {
@@ -91,6 +92,28 @@ namespace parallel_primitives {
             }
             //item.barrier();
             return out[length - 1];
+        }
+
+        template<scan_type type, typename T, typename func>
+        static inline void scan_over_sub_group(const sycl::nd_item<1> &item, const size_t &length, T *inout, const size_t &thread_id, const size_t &thread_count) {
+            const func op{};
+            for (size_t i = thread_id; i < length; i += thread_count) {
+                if constexpr(type == scan_type::inclusive) {
+                    inout[i] = sycl::inclusive_scan_over_group(item.get_sub_group(), inout[i], op);
+                } else if constexpr (type == scan_type::exclusive) {
+                    inout[i] = sycl::exclusive_scan_over_group(item.get_sub_group(), inout[i], op);
+                } else {
+                    fail_to_compile<type, T, func>();
+                }
+            }
+        }
+
+
+        template<typename T>
+        static inline void load_local(const T *in, const size_t &length, T *acc, const size_t &thread_id, const size_t &thread_count) {
+            for (size_t i = thread_id; i < length; i += thread_count) {
+                acc[i] = in[i];
+            }
         }
 
         template<typename T, typename func>
@@ -167,8 +190,11 @@ namespace parallel_primitives {
                                         partition->set_prefix(op(aggregate, shared_prefix[0]));
                                     }
                                     scan_over_group<type, T, func>(item, this_chunk_length, shared, group_out, shared_prefix[0]);
+                                    //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size);
                                 } else {
                                     T aggregate = scan_over_group<type, T, func>(item, this_chunk_length, group_in, shared);
+                                    //load_local<T>(group_in, this_chunk_length, shared, thread_id, group_size);
+                                    //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size);
                                     if (thread_id == 0) {
                                         partition->set_aggregate(aggregate);
                                         shared_prefix[0] = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
@@ -185,22 +211,48 @@ namespace parallel_primitives {
     }
 
     template<scan_type type, typename func, typename T>
+    static inline void host_scan(const T *input, T *output, index_t length) {
+        const func op{};
+        if (length == 0) {
+            return;
+        }
+        if constexpr(type == scan_type::inclusive) {
+            output[0] = input[0];
+            for (index_t i = 1; i < length; ++i) {
+                output[i] = op(input[i], output[i - 1]);
+            }
+        } else if constexpr (type == scan_type::exclusive) {
+            output[0] = get_init<T, func>();
+            for (index_t i = 1; i < length; ++i) {
+                output[i] = op(input[i - 1], output[i - 1]);
+            }
+        } else {
+            fail_to_compile<type, T, func>();
+        }
+    }
+
+
+    template<scan_type type, typename func, typename T>
     void decoupled_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
+        if (length < 65536 && q.get_device().is_gpu()) {
+            return scan_device<type, func, T>(q, input, output, length);
+        }
+
         sycl::nd_range<1> kernel_parameters = get_max_occupancy<internal::decoupled_scan_kernel<type, func, T>>(q);
         internal::scan_decoupled_device<type, func>(q, input, output, length, kernel_parameters);
     }
 
-    template<scan_type type, typename func, typename T>
+    template<scan_type type, typename func, typename T, bool optimised_offload = true, size_t offload_threshold = 131072>
     void decoupled_scan(sycl::queue &q, const T *input, T *output, index_t length) {
+        if (optimised_offload && length < offload_threshold && q.get_device().is_gpu()) {
+            host_scan<type, func, T>(input, output, length);
+            return;
+        }
         auto d_out = sycl::malloc_device<T>(length, q);
         auto d_in = sycl::malloc_device<T>(length, q);
-
         q.memcpy(d_in, input, length * sizeof(T)).wait();
-
-        decoupled_scan_device<type, func>(q, d_in, d_out, length);
-
+        decoupled_scan_device<type, func, T, false>(q, d_in, d_out, length);
         q.memcpy(output, d_out, length * sizeof(T)).wait();
-
         sycl::free(d_out, q);
         sycl::free(d_in, q);
     }
