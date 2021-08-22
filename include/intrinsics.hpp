@@ -24,7 +24,7 @@
 namespace sycl::ext {
     inline uint32_t funnelshift_l(uint32_t lo, uint32_t hi, uint32_t shift) {
         if (shift == 0) return hi; // To avoid shifting by 32
-        return (hi << (uint)(shift % 31)) | (lo >> (uint)(32 - (shift % 31)));
+        return (hi << (uint) (shift % 31)) | (lo >> (uint) (32 - (shift % 31)));
     }
 
     inline uint32_t funnelshift_r(uint32_t lo, uint32_t hi, uint32_t shift) {

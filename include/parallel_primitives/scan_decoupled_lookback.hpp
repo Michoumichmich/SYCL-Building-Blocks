@@ -23,63 +23,13 @@
 #include "common.h"
 #include "scan.hpp"
 #include "../cooperative_groups.hpp"
+#include "internal/partition_descriptor.h"
 
 namespace parallel_primitives {
     namespace internal {
-
-        enum class status {
-            aggregate_available,
-            prefix_available,
-            invalid
-        };
-
         template<typename T, typename func>
-        class partition_descriptor {
-        private:
-            status status_flag_ = status::invalid;
-            T inclusive_prefix_ = get_init<T, func>();
-            T aggregate_ = get_init<T, func>();
-
-        public:
-            inline void set_aggregate(const T &aggregate) {
-                aggregate_ = aggregate;
-                sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_device);
-                status_flag_ = status::aggregate_available;
-            }
-
-            inline void set_prefix(const T &prefix) {
-                inclusive_prefix_ = prefix;
-                sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_device);
-                status_flag_ = status::prefix_available;
-            }
-
-            static T run_look_back(volatile partition_descriptor *ptr_base, const size_t &partition_id) {
-                T tmp = get_init<T, func>();
-                const func op{};
-                for (auto partition = partition_id; partition_id > 0;) {
-                    partition--;
-                    while (ptr_base[partition].status_flag_ == status::invalid) {/* wait */}
-                    if (ptr_base[partition].status_flag_ == status::prefix_available) {
-                        return op(tmp, ptr_base[partition].inclusive_prefix_);
-                    }
-                    //if (ptr_base[partition].status_flag_ == status::aggregate_available) {
-                    tmp = op(tmp, ptr_base[partition].aggregate_);
-                    //}
-                }
-                return tmp;
-            }
-
-            static std::optional<T> is_ready(const partition_descriptor *ptr_base, const size_t &partition_id) {
-                if (partition_id == 0) {
-                    return get_init<T, func>();
-                } else if (ptr_base[partition_id - 1].status_flag_ == status::prefix_available) {
-                    return ptr_base[partition_id - 1].inclusive_prefix_;
-                } else {
-                    return std::nullopt;
-                }
-            }
-
-        };
+        //using partition_descriptor = partition_descriptor_internal::partition_descriptor_impl<T, func, (sizeof(partition_descriptor_internal::data<T, func>) <= 8)>;
+        using partition_descriptor = decoupled_lookback_internal::partition_descriptor_impl<T, func, false>;
 
         template<scan_type type, typename T, typename func>
         static inline T scan_over_group(const sycl::nd_item<1> &item, const size_t &length, const T *in, T *out, const T init = get_init<T, func>()) {
