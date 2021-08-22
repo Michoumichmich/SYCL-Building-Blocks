@@ -176,7 +176,7 @@ sycl::nd_range<1> get_max_occupancy(sycl::queue &q, size_t local_mem = 0) {
     size_t registers = private_mem_size / 2; // find a way to get that value
     //printf("Kernel private mem size: %lu", private_mem_size);
 
-    size_t max_items = (uint32_t) std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>() / 2);
+    size_t max_items = kernel.get_info<sycl::info::kernel_device_specific::work_group_size>(q.get_device());
     size_t max_groups = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
 
     return {sycl::range<1>(max_items * max_groups), sycl::range<1>(max_items)};
