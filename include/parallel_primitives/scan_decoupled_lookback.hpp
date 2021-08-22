@@ -74,21 +74,16 @@ namespace parallel_primitives {
             const func op{};
             T last = get_init<T, func>();
             for (size_t i = thread_id; i < length; i += thread_count) {
-                T tmp = in[i];
-
                 if constexpr(type == scan_type::inclusive) {
-                    sycl::inclusive_scan_over_group(item.get_group(), tmp, op, last);
+                    acc[i] = sycl::inclusive_scan_over_group(item.get_group(), in[i], op, last);
                 } else if constexpr (type == scan_type::exclusive) {
-                    sycl::exclusive_scan_over_group(item.get_group(), tmp, last, op);
+                    acc[i] = sycl::exclusive_scan_over_group(item.get_group(), in[i], last, op);
                 } else {
                     fail_to_compile<type, T, func>();
                 }
-
-                //item.barrier();
-                acc[i] = tmp;
-                last = acc[((thread_id + thread_count - 1) / thread_count) - 1];
+                item.barrier();
+                last = acc[thread_count * ((i + thread_count) / thread_count) - 1];
             }
-            item.barrier();
             return last;
         }
 
