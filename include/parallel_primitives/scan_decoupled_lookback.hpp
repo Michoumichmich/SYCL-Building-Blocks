@@ -45,9 +45,11 @@ namespace parallel_primitives {
         }
 
         template<scan_type type, typename T, typename func>
-        static inline void scan_over_sub_group(const sycl::nd_item<1> &item, const size_t &length, T *inout, const size_t &thread_id, const size_t &thread_count) {
+        static inline void scan_over_sub_group(const sycl::nd_item<1> &item, const size_t &length, T *inout, const size_t &thread_id, const size_t &thread_count, T *shared_data) {
             const func op{};
+            const size_t subgroup_id = item.get_sub_group().get_group_linear_id();
             for (size_t i = thread_id; i < length; i += thread_count) {
+                item.barrier(sycl::access::fence_space::local_space);
                 if constexpr(type == scan_type::inclusive) {
                     inout[i] = sycl::inclusive_scan_over_group(item.get_sub_group(), inout[i], op);
                 } else if constexpr (type == scan_type::exclusive) {
@@ -55,6 +57,17 @@ namespace parallel_primitives {
                 } else {
                     fail_to_compile<type, T, func>();
                 }
+                //item.barrier(sycl::access::fence_space::local_space);
+                if (item.get_sub_group().leader()) {
+                    shared_data[subgroup_id] = inout[i];
+                }
+                item.barrier(sycl::access::fence_space::local_space);
+                if (subgroup_id == 0) {
+                    host_scan<scan_type::exclusive, func, T>(shared_data, shared_data, 32);
+                }
+                item.barrier(sycl::access::fence_space::local_space);
+                inout[i] = op(inout[i], shared_data[subgroup_id]);
+
             }
         }
 
@@ -75,7 +88,7 @@ namespace parallel_primitives {
                 acc[i] = tmp;
                 reduced = op(reduced, tmp);
             }
-            return reduced;//sycl::reduce_over_group(item.get_group(), reduced, op);
+            return sycl::reduce_over_group(item.get_group(), reduced, op);
         }
 
         template<typename T, typename func>
@@ -161,20 +174,23 @@ namespace parallel_primitives {
     }
 
     template<scan_type type, typename func, typename T>
-    static inline void host_scan(const T *input, T *output, index_t length) {
+    static inline void host_scan(const T *input, T *output, index_t length, T init = get_init<T, func>()) {
         const func op{};
         if (length == 0) {
             return;
         }
         if constexpr(type == scan_type::inclusive) {
-            output[0] = input[0];
+            output[0] = op(input[0], init);
             for (index_t i = 1; i < length; ++i) {
                 output[i] = op(input[i], output[i - 1]);
             }
         } else if constexpr (type == scan_type::exclusive) {
-            output[0] = get_init<T, func>();
+            T previous = input[0];
+            output[0] = init;
             for (index_t i = 1; i < length; ++i) {
-                output[i] = op(input[i - 1], output[i - 1]);
+                T new_val = op(input[i - 1], previous);
+                previous = input[i];
+                output[i] = new_val;
             }
         } else {
             fail_to_compile<type, T, func>();
