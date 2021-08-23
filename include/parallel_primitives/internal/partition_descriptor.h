@@ -12,6 +12,7 @@
 
 
 namespace parallel_primitives::decoupled_lookback_internal {
+
     enum class status : char {
         aggregate_available,
         prefix_available,
@@ -45,19 +46,13 @@ namespace parallel_primitives::decoupled_lookback_internal {
 
     public:
         inline void set_aggregate(const T &aggregate) {
-            atomic_union_storage tmp{};
-            tmp.data.value_ = aggregate;
-            tmp.data.status_flag_ = status::aggregate_available;
             atomic_ref_t ref(packed.storage);
-            ref.store(tmp.storage);
+            ref.store(atomic_union_storage{.data={.value_ = aggregate, .status_flag_=status::aggregate_available}}.storage);
         }
 
         inline void set_prefix(const T &prefix) {
-            atomic_union_storage tmp{};
-            tmp.data.value_ = prefix;
-            tmp.data.status_flag_ = status::prefix_available;
             atomic_ref_t ref(packed.storage);
-            ref.store(tmp.storage);
+            ref.store(atomic_union_storage{.data={.value_ = prefix, .status_flag_=status::prefix_available}}.storage);
         }
 
         static T run_look_back(partition_descriptor_impl *ptr_base, const size_t &partition_id) {
@@ -100,20 +95,20 @@ namespace parallel_primitives::decoupled_lookback_internal {
     template<typename T, typename func>
     class partition_descriptor_impl<T, func, false> {
     private:
-        status status_flag_ = status::invalid;
         T inclusive_prefix_ = get_init<T, func>();
         T aggregate_ = get_init<T, func>();
+        status status_flag_ = status::invalid;
 
     public:
         inline void set_aggregate(const T &aggregate) {
             aggregate_ = aggregate;
-            sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_device);
+            sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_work_group);
             status_flag_ = status::aggregate_available;
         }
 
         inline void set_prefix(const T &prefix) {
             inclusive_prefix_ = prefix;
-            sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_device);
+            sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_work_group);
             status_flag_ = status::prefix_available;
         }
 

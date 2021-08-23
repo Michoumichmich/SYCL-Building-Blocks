@@ -28,7 +28,7 @@
 namespace parallel_primitives {
     namespace internal {
         template<typename T, typename func>
-        //using partition_descriptor = partition_descriptor_internal::partition_descriptor_impl<T, func, (sizeof(partition_descriptor_internal::data<T, func>) <= 8)>;
+        //using partition_descriptor = decoupled_lookback_internal::partition_descriptor_impl<T, func, (sizeof(decoupled_lookback_internal::data<T, func>) <= 8)>;
         using partition_descriptor = decoupled_lookback_internal::partition_descriptor_impl<T, func, false>;
 
         template<scan_type type, typename T, typename func>
@@ -75,7 +75,7 @@ namespace parallel_primitives {
                 acc[i] = tmp;
                 reduced = op(reduced, tmp);
             }
-            return sycl::reduce_over_group(item.get_group(), reduced, op);
+            return reduced;//sycl::reduce_over_group(item.get_group(), reduced, op);
         }
 
         template<typename T, typename func>
@@ -132,7 +132,7 @@ namespace parallel_primitives {
                                         shared_ready_state[0] = false;
                                     }
                                 }
-                                item.barrier();
+                                item.barrier(sycl::access::fence_space::local_space);
 
                                 if (shared_ready_state[0] == true) {
                                     T aggregate = load_local_and_reduce<T, func>(item, group_in, this_chunk_length, shared, thread_id, group_size);
@@ -150,7 +150,7 @@ namespace parallel_primitives {
                                         shared_prefix[0] = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
                                         partition->set_prefix(op(aggregate, shared_prefix[0]));
                                     }
-                                    item.barrier();
+                                    item.barrier(sycl::access::fence_space::local_space);
                                     store_to_global_and_increment<T, func>(group_out, this_chunk_length, shared, thread_id, group_size, shared_prefix[0]);
                                 }
                             }
