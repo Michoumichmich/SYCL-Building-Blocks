@@ -38,7 +38,8 @@ namespace parallel_primitives {
             q.submit([&](sycl::handler &cgh) {
                 cgh.parallel_for<cooperative_scan_kernel<type, func, T>>(
                         kernel_range,
-                        [length, d_in, d_out, grid_barrier, all_but_first_barrier](sycl::nd_item<1> item) {
+                        [length2 = length, d_in, d_out, grid_barrier, all_but_first_barrier](sycl::nd_item<1> item) {
+                            const size_t length = length2;
                             const func op{};
                             const size_t group_id = item.get_group_linear_id();
                             const size_t item_local_offset = item.get_local_linear_id();

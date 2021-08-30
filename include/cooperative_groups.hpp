@@ -122,7 +122,6 @@ public:
         return new(barrier) nd_range_barrier<dim>(q, kernel_range, cooperating_groups);
     }
 
-
     void wait(sycl::nd_item<dim> this_item) {
         const mask_t this_group_mask = compute_item_mask(this_item);
 
@@ -133,7 +132,7 @@ public:
         if (this_item.get_local_linear_id() == 0) {
             using atomic_ref_t = ATOMIC_REF_NAMESPACE::atomic_ref<
                     mask_t,
-                    ATOMIC_REF_NAMESPACE::memory_order::acq_rel,
+                    ATOMIC_REF_NAMESPACE::memory_order::relaxed, //TODO acq_rel
                     ATOMIC_REF_NAMESPACE::memory_scope::device,
                     sycl::access::address_space::global_space
             >;
@@ -160,7 +159,6 @@ public:
             } else {
                 while (barrier_reached_ref.load() != 0) {}
             }
-
         }
 
         this_item.barrier(sycl::access::fence_space::local_space);
@@ -182,10 +180,9 @@ sycl::nd_range<1> get_max_occupancy(sycl::queue &q, size_t local_mem = 0) {
     return {sycl::range<1>(max_items * max_groups), sycl::range<1>(max_items)};
 }
 
-
 class cooperative_demo;
 
-static inline void cooperative_group_demo(sycl::queue q) {
+/*static inline void cooperative_group_demo(sycl::queue q) {
     auto kernel_param = sycl::nd_range<1>({1024 * 16}, {1024});
     auto grid_barrier = nd_range_barrier<1>::make_barrier(q, kernel_param);
     auto pair_barrier = nd_range_barrier<1>::make_barrier(q, kernel_param, {0, 10});
@@ -203,4 +200,4 @@ static inline void cooperative_group_demo(sycl::queue q) {
                     if (it.get_local_linear_id() == 0) os << "Pos 3: " << it.get_group_linear_id() << sycl::endl;
                 });
     }).wait();
-}
+}*/

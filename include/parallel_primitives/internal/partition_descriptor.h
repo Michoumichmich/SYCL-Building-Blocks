@@ -30,19 +30,27 @@ namespace parallel_primitives::decoupled_lookback_internal {
 
     template<typename T, typename func>
     class partition_descriptor_impl<T, func, true> {
+    private:
+
+        using storage_type = typeof([]() {
+            if constexpr(sizeof(data<T, func>) <= 4) {
+                return uint32_t{};
+            } else {
+                return uint64_t{};
+            }
+        }());
+
+        union atomic_union_storage {
+            storage_type storage;
+            data<T, func> data{};
+        } packed{};
+
         using atomic_ref_t = ATOMIC_REF_NAMESPACE::atomic_ref<
-                uint64_t,
+                storage_type,
                 ATOMIC_REF_NAMESPACE::memory_order::relaxed,
                 ATOMIC_REF_NAMESPACE::memory_scope::device,
                 sycl::access::address_space::global_space
         >;
-
-    private:
-
-        union atomic_union_storage {
-            uint64_t storage;
-            data<T, func> data{};
-        } packed{};
 
     public:
         inline void set_aggregate(const T &aggregate) {
