@@ -122,8 +122,11 @@ namespace parallel_primitives {
                 cgh.depends_on(init);
                 cgh.parallel_for<decoupled_scan_kernel<type, func, T >>(
                         kernel_range,
-                        [length, d_in, d_out, local_mem_length, shared_mem, partitions, shared_ready_state, shared_prefix](sycl::nd_item<1> item) {
+                        [length_ = length, d_in, d_out, local_mem_length, shared_mem, partitions, shared_ready_state, shared_prefix](sycl::nd_item<1> item) {
+                            const size_t length = length_;
                             const size_t group_id = item.get_group_linear_id();
+                            T *const shared_prefix_ptr = shared_prefix.get_pointer();
+                            int *const ready_state_ptr = shared_ready_state.get_pointer();
                             const size_t thread_id = item.get_local_linear_id();
                             const size_t group_count = item.get_group_range().size();
                             const size_t group_size = item.get_local_range().size();
@@ -139,10 +142,10 @@ namespace parallel_primitives {
                                 if (thread_id == 0) {
                                     auto res = partition_descriptor<T, func>::is_ready(partitions, partition_id);
                                     if (res) {
-                                        shared_ready_state[0] = true;
-                                        shared_prefix[0] = *res;
+                                        *ready_state_ptr = true;
+                                        *shared_prefix_ptr = *res;
                                     } else {
-                                        shared_ready_state[0] = false;
+                                        *ready_state_ptr = false;
                                     }
                                 }
                                 item.barrier(sycl::access::fence_space::local_space);
@@ -150,9 +153,10 @@ namespace parallel_primitives {
                                 if (shared_ready_state[0] == true) {
                                     T aggregate = load_local_and_reduce<T, func>(item, group_in, this_chunk_length, shared, thread_id, group_size);
                                     if (thread_id == 0) {
-                                        partition->set_prefix(op(aggregate, shared_prefix[0]));
+                                        partition->set_prefix(op(aggregate, *shared_prefix_ptr));
                                     }
-                                    scan_over_group<type, T, func>(item, this_chunk_length, shared, group_out, shared_prefix[0]);
+
+                                    scan_over_group<type, T, func>(item, this_chunk_length, shared, group_out, *shared_prefix_ptr);
                                     //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size);
                                 } else {
                                     T aggregate = scan_over_group<type, T, func>(item, this_chunk_length, group_in, shared);
@@ -160,15 +164,18 @@ namespace parallel_primitives {
                                     //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size);
                                     if (thread_id == 0) {
                                         partition->set_aggregate(aggregate);
-                                        shared_prefix[0] = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
-                                        partition->set_prefix(op(aggregate, shared_prefix[0]));
+                                        *shared_prefix_ptr = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
+                                        partition->set_prefix(op(aggregate, *shared_prefix_ptr));
                                     }
                                     item.barrier(sycl::access::fence_space::local_space);
-                                    store_to_global_and_increment<T, func>(group_out, this_chunk_length, shared, thread_id, group_size, shared_prefix[0]);
+                                    store_to_global_and_increment<T, func>(group_out, this_chunk_length, shared, thread_id, group_size, *shared_prefix_ptr);
                                 }
                             }
                         });
             }).wait();
+            //     auto duration = e.template get_profiling_info<sycl::info::event_profiling::command_end>();
+            //        duration -= e.template get_profiling_info<sycl::info::event_profiling::command_start>();
+            //      std::cout << duration /1000000. << '\n';
             sycl::free(partitions, q);
         }
     }
@@ -198,9 +205,9 @@ namespace parallel_primitives {
     }
 
 
-    template<scan_type type, typename func, typename T>
+    template<scan_type type, typename func, typename T, bool optimised_offload = true>
     void decoupled_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
-        if (length < 65536 && q.get_device().is_gpu()) {
+        if (optimised_offload && length < 65536 && q.get_device().is_gpu()) {
             return scan_device<type, func, T>(q, input, output, length);
         }
 

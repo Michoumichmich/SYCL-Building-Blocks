@@ -126,7 +126,7 @@ namespace parallel_primitives {
         auto d_out = sycl::malloc_device<T>(length, q);
         auto d_in = sycl::malloc_device<T>(length, q);
         q.memcpy(d_in, input, length * sizeof(T)).wait();
-        cooperative_scan_device<type, func>(q, d_in, d_out, length);
+        scan_device<type, func>(q, d_in, d_out, length);
         q.memcpy(output, d_out, length * sizeof(T)).wait();
         sycl::free(d_out, q);
         sycl::free(d_in, q);

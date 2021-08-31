@@ -11,7 +11,7 @@ void reduce_benchmark(benchmark::State &state) {
     q.fill(in, T(1), size).wait();
 
     T res;
-    for (auto _ : state) {
+    for (auto _: state) {
         res = reduce_device<sycl::plus<>>(q, in, size);
     }
 
@@ -33,7 +33,7 @@ void reduce_benchmark2(benchmark::State &state) {
     std::iota(in, in + size, 0);
 
     T res;
-    for (auto _ : state) {
+    for (auto _: state) {
         res = reduce_device<sycl::plus<>>(q, in, size);
     }
 

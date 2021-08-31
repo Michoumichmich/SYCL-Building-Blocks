@@ -48,7 +48,7 @@ namespace parallel_primitives::decoupled_lookback_internal {
         using atomic_ref_t = ATOMIC_REF_NAMESPACE::atomic_ref<
                 storage_type,
                 ATOMIC_REF_NAMESPACE::memory_order::relaxed,
-                ATOMIC_REF_NAMESPACE::memory_scope::device,
+                ATOMIC_REF_NAMESPACE::memory_scope::work_group,
                 sycl::access::address_space::global_space
         >;
 

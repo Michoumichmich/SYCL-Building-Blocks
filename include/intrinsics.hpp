@@ -53,12 +53,20 @@ namespace sycl::ext {
         }
         return reverse_num;
     }
+
+    uint32_t ballot(sycl::sub_group sg, int predicate) {
+        size_t id = sg.get_local_linear_id();
+        uint32_t local_val = (predicate ? 1u : 0u) << id;
+        return sycl::reduce_over_group(sg, local_val, sycl::plus<>());
+    }
+
 }
 
 
 #define SYCL_ASSERT(x) \
 if(!(x)) {volatile int * ptr = nullptr ; *ptr;}
 
+template<bool b = false>
 void check_builtins() {
     uint32_t hi = 0xDEADBEEF, lo = 0xCAFED00D;
     SYCL_ASSERT(sycl::ext::funnelshift_l(lo, hi, 8) == 0xADBEEFCA)
@@ -78,8 +86,15 @@ void check_builtins() {
     SYCL_ASSERT(sycl::ext::brev64(sycl::ext::brev64(lo)) == lo)
 }
 
+template<bool b = false>
 void check_builtins(sycl::queue q) {
+    bool is_host = q.is_host();
     q.single_task<class tests>([]() {
+        check_builtins();
+    }).wait_and_throw();
+
+    q.parallel_for<class tests2>(sycl::nd_range<1>(32, 32), [=](sycl::nd_item<1> it) {
+        if (!is_host) SYCL_ASSERT(sycl::popcount(sycl::ext::ballot(it.get_sub_group(), 1)) == it.get_sub_group().get_local_range().size())
         check_builtins();
     }).wait_and_throw();
 }
