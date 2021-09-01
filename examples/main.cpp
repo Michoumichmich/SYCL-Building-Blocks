@@ -1,7 +1,4 @@
 #include "../include/intrinsics.hpp"
-
-#include "../include/parallel_primitives/scan.hpp"
-#include "../include/parallel_primitives/scan_cooperative.hpp"
 #include "../include/parallel_primitives/scan_decoupled_lookback.hpp"
 
 /**
@@ -66,7 +63,7 @@ int main() {
     check_builtins();
     check_builtins(q);
     check_builtins(sycl::queue{sycl::host_selector{}});
-
+    std::cout << "Builtins OK" << std::endl;
     basel_problem_pi(q);
     wallis_product_pi(q);
 }

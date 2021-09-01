@@ -21,6 +21,15 @@
 
 #include <sycl/sycl.hpp>
 
+namespace internal {
+
+    bool is_in_mask(uint32_t mask, size_t idx) {
+        return ((1u << idx) & mask) == (1u << idx);
+    }
+
+}
+
+
 namespace sycl::ext {
     inline uint32_t funnelshift_l(uint32_t lo, uint32_t hi, uint32_t shift) {
         if (shift == 0) return hi; // To avoid shifting by 32
@@ -54,10 +63,50 @@ namespace sycl::ext {
         return reverse_num;
     }
 
-    uint32_t ballot(sycl::sub_group sg, int predicate) {
-        size_t id = sg.get_local_linear_id();
-        uint32_t local_val = (predicate ? 1u : 0u) << id;
+
+    template<typename func>
+    static uint32_t predicate_to_mask(const sycl::sub_group &sg, func &&predicate) {
+        size_t group_count = sg.get_local_range().size();
+        uint32_t out = 0;
+        for (size_t gr = 0; gr < group_count; ++gr) {
+            if (predicate(gr)) {
+                out |= uint32_t(1) << gr;
+            }
+        }
+        return out;
+    }
+
+    uint32_t ballot(const sycl::sub_group &sg, int predicate) {
+        uint32_t local_val = (predicate ? 1u : 0u) << (sg.get_local_linear_id());
         return sycl::reduce_over_group(sg, local_val, sycl::plus<>());
+    }
+
+
+    template<typename T>
+    uint32_t match_any(const sycl::sub_group &sg, T val) {
+        size_t local_range = sg.get_local_range().size();
+        uint32_t found = 0;
+        for (uint32_t i = 0; i < local_range; ++i) {
+            const T from_other = sycl::select_from_group(sg, val, i);
+            found |= (from_other == val ? 1u : 0u) << i;
+        }
+        return found;
+    }
+
+
+    template<typename T>
+    bool match_all(const sycl::sub_group &sg, uint32_t mask, T val) {
+        if (mask == 0 || sycl::clz(mask) >= 8 * sizeof(mask)) return false;
+        size_t last_work_item_id = 8 * sizeof(mask) - 1 - sycl::clz(mask);
+        if (last_work_item_id > sg.get_local_range().size()) return false;
+        const T from_others = sycl::select_from_group(sg, val, last_work_item_id);
+        return mask == (ballot(sg, val == from_others) & mask);
+    }
+
+
+    template<typename T>
+    T broadcast_leader(const sycl::sub_group &sg, T val) {
+        return sycl::select_from_group(sg, val, 0);
     }
 
 }
@@ -94,7 +143,23 @@ void check_builtins(sycl::queue q) {
     }).wait_and_throw();
 
     q.parallel_for<class tests2>(sycl::nd_range<1>(32, 32), [=](sycl::nd_item<1> it) {
-        if (!is_host) SYCL_ASSERT(sycl::popcount(sycl::ext::ballot(it.get_sub_group(), 1)) == it.get_sub_group().get_local_range().size())
         check_builtins();
+        if (is_host) return;
+        auto sg = it.get_sub_group();
+
+        SYCL_ASSERT(sycl::popcount(sycl::ext::ballot(sg, 1)) == sg.get_local_range().size())
+        SYCL_ASSERT(0 == sycl::ext::broadcast_leader(sg, sg.get_local_linear_id()))
+        SYCL_ASSERT(sycl::ext::match_all(sg, 1, 1))
+        SYCL_ASSERT(sycl::ext::match_all(sg, 0xFFFFFFFF, 0xDEADBEEF))
+        SYCL_ASSERT(!sycl::ext::match_all(sg, 0xFFFFFFFF, it.get_local_linear_id()))
+
+        auto mask_even = sycl::ext::predicate_to_mask(sg, [&](size_t i) { return i % 2 == 0; }); // Select threads where tid is even
+        auto mask_odd = sycl::ext::predicate_to_mask(sg, [&](size_t i) { return i % 2 != 0; }); // Select threads where tid is even
+        SYCL_ASSERT(sycl::ext::match_all(sg, mask_even, it.get_local_linear_id() % 2))
+
+        uint32_t expected = (it.get_local_linear_id() % 2 == 0) ? mask_even : mask_odd;
+        SYCL_ASSERT(expected == sycl::ext::match_any(sg, it.get_local_linear_id() % 2 == 0))
+
+
     }).wait_and_throw();
 }
