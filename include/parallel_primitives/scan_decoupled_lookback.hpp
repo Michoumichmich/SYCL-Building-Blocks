@@ -19,7 +19,6 @@
 
 #pragma once
 
-
 #include "common.h"
 #include "scan.hpp"
 #include "../cooperative_groups.hpp"
@@ -85,6 +84,7 @@ namespace parallel_primitives {
             T reduced = get_init<T, func>();
             for (size_t i = thread_id; i < length; i += thread_count) {
                 T tmp = in[i];
+                //sycl::ext::prefetch(in + i + length);
                 acc[i] = tmp;
                 reduced = op(reduced, tmp);
             }
@@ -138,7 +138,7 @@ namespace parallel_primitives {
                                 T *group_out = d_out + partition_id * local_mem_length;
                                 size_t this_chunk_length = sycl::min(local_mem_length, length - partition_id * local_mem_length);
                                 auto partition = partitions + partition_id;
-
+                                sycl::ext::prefetch(partitions - 1);
                                 if (thread_id == 0) {
                                     auto res = partition_descriptor<T, func>::is_ready(partitions, partition_id);
                                     if (res) {

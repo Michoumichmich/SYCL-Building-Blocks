@@ -20,6 +20,7 @@
 #pragma once
 
 #include <sycl/sycl.hpp>
+#include "../intrinsics.hpp"
 
 namespace parallel_primitives {
 

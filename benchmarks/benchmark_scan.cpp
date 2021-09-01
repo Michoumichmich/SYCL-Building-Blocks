@@ -1,4 +1,3 @@
-#include <parallel_primitives/scan.hpp>
 #include <parallel_primitives/scan_cooperative.hpp>
 #include <parallel_primitives/scan_decoupled_lookback.hpp>
 #include <benchmark/benchmark.h>
