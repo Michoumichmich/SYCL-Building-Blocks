@@ -65,7 +65,24 @@ namespace sycl::ext {
     template<typename T>
     void static inline prefetch(const T *ptr) {
 #if defined (__NVPTX__) && defined(__SYCL_DEVICE_ONLY__)
-        asm("prefetch.L1 [%0];" :  : "l"(ptr));
+        if constexpr (sizeof(ptr) == 8) {
+            asm("prefetch.L1 [%0];" :  : "l"(ptr));
+        } else {
+            asm("prefetch.L1 [%0];" :  : "r"(ptr));
+        }
+#else
+        (void)ptr;
+#endif
+    }
+
+    template<typename T>
+    void static inline prefetch_constant(const T *ptr) {
+#if defined (__NVPTX__) && defined(__SYCL_DEVICE_ONLY__)
+        if constexpr (sizeof(ptr) == 8) {
+            asm("prefetchu.L1 [%0];" :  : "l"(ptr));
+        } else {
+            asm("prefetchu.L1 [%0];" :  : "r"(ptr));
+        }
 #else
         (void)ptr;
 #endif

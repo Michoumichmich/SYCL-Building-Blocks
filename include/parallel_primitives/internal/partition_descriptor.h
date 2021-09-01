@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sycl/sycl.hpp>
+#include "../../intrinsics.hpp"
 
 #ifndef ATOMIC_REF_NAMESPACE
 #ifdef USING_DPCPP
@@ -112,12 +113,14 @@ namespace parallel_primitives::decoupled_lookback_internal {
             aggregate_ = aggregate;
             sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_work_group);
             status_flag_ = status::aggregate_available;
+            //sycl::ext::prefetch_constant(this);
         }
 
         inline void set_prefix(const T &prefix) {
             inclusive_prefix_ = prefix;
             sycl::atomic_fence(sycl::memory_order_seq_cst, sycl::memory_scope_work_group);
             status_flag_ = status::prefix_available;
+            //      sycl::ext::prefetch_constant(this);
         }
 
         static T run_look_back(volatile partition_descriptor_impl *ptr_base, const size_t &partition_id) {
@@ -125,6 +128,7 @@ namespace parallel_primitives::decoupled_lookback_internal {
             const func op{};
             for (auto partition = partition_id; partition_id > 0;) {
                 partition--;
+                sycl::ext::prefetch(ptr_base + partition - 1);
                 while (ptr_base[partition].status_flag_ == status::invalid) {/* wait */}
                 if (ptr_base[partition].status_flag_ == status::prefix_available) {
                     return op(tmp, ptr_base[partition].inclusive_prefix_);
