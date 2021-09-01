@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 include_directories(../include)
 
 # If you're using the DPCPP compiler, these flags will be used. Set here the devices you want to target
-set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Wno-unknown-cuda-version -Xsycl-target-backend=nvptx64-nvidia-cuda-sycldevice --cuda-gpu-arch=sm_75 -DSYCL_USE_NATIVE_FP_ATOMICS -fsycl-libspirv-path=/home/michel/sycl_workspace/deploy/lib/clc/libspirv-nvptx64--nvidiacl.bc -Xcuda-ptxas --maxrregcount=64 -fcuda-flush-denormals-to-zero -ffast-math -fcuda-approx-transcendentals -fsycl-id-queries-fit-in-int)
+set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Wno-unknown-cuda-version -Xsycl-target-backend=nvptx64-nvidia-cuda-sycldevice --cuda-gpu-arch=sm_75 -DSYCL_USE_NATIVE_FP_ATOMICS -fsycl-libspirv-path=/home/michel/sycl_workspace/deploy/lib/clc/libspirv-nvptx64--nvidiacl.bc -Xcuda-ptxas --maxrregcount=64 -fcuda-flush-denormals-to-zero -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fcuda-approx-transcendentals -fsycl-id-queries-fit-in-int)
 #set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice)
 include(../cmake/FindSYCL.cmake)
 
