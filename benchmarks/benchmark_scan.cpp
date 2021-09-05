@@ -18,7 +18,7 @@ void basel_problem_cooperative_scan(benchmark::State &state) {
         in[i] = (T) (1. / (idx * idx));
     }
 
-    for (auto _ : state) {
+    for (auto _: state) {
         cooperative_scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, size);
     }
     state.SetBytesProcessed(static_cast<int64_t>(sizeof(T) * state.iterations() * size));
@@ -39,7 +39,7 @@ void basel_problem_decoupled_scan(benchmark::State &state) {
 
     q.fill(in, T(1), size).wait();
 
-    for (auto _ : state) {
+    for (auto _: state) {
         decoupled_scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, size);
     }
 
@@ -67,7 +67,7 @@ void basel_problem_regular_scan(benchmark::State &state) {
         in[i] = (T) (1. / (idx * idx));
     }
 
-    for (auto _ : state) {
+    for (auto _: state) {
         scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, size);
     }
 
