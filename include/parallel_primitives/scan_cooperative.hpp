@@ -22,6 +22,9 @@
 #include "common.h"
 #include "../cooperative_groups.hpp"
 #include <numeric>
+#include "../usm_smart_ptr.hpp"
+
+using namespace usm_smart_ptr;
 
 namespace parallel_primitives {
     namespace internal {
@@ -98,16 +101,11 @@ namespace parallel_primitives {
 
     template<scan_type type, typename func, typename T>
     void cooperative_scan(sycl::queue &q, const T *input, T *output, index_t length) {
-        auto d_out = sycl::malloc_device<T>(length, q);
-        auto d_in = sycl::malloc_device<T>(length, q);
+        auto d_out = usm_unique_ptr<T, alloc::device>(length, q);
+        auto d_in = usm_unique_ptr<T, alloc::device>(length, q);
+        q.memcpy(d_in.get(), input, d_in.size_bytes()).wait();
+        cooperative_scan_device<type, func>(q, d_in.get(), d_out.get(), d_in.size());
+        q.memcpy(output, d_out.get(), d_out.size_bytes()).wait();
 
-        q.memcpy(d_in, input, length * sizeof(T)).wait();
-
-        cooperative_scan_device<type, func>(q, d_in, d_out, length);
-
-        q.memcpy(output, d_out, length * sizeof(T)).wait();
-
-        sycl::free(d_out, q);
-        sycl::free(d_in, q);
     }
 }

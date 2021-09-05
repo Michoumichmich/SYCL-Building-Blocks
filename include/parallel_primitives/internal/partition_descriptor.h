@@ -33,7 +33,7 @@ namespace parallel_primitives::decoupled_lookback_internal {
     class partition_descriptor_impl<T, func, true> {
     private:
 
-        using storage_type = typeof([]() {
+        using storage_type = decltype([]() {
             if constexpr(sizeof(data<T, func>) <= 4) {
                 return uint32_t{};
             } else {

@@ -20,7 +20,10 @@
 #pragma once
 
 #include "common.h"
+#include "../usm_smart_ptr.hpp"
 #include <numeric>
+
+using namespace usm_smart_ptr;
 
 namespace parallel_primitives {
     namespace internal {
@@ -56,17 +59,17 @@ namespace parallel_primitives {
     }
 
     template<typename func, typename T>
-    T host_reduce(const T *input, index_t length) {
+    static inline T host_reduce(const sycl::span<const T> &in) {
         const func op{};
         T out = get_init<T, func>();
-        for (size_t i = 0; i < length; ++i) {
-            out = op(out, input[i]);
+        for (size_t i = 0; i < in.size(); ++i) {
+            out = op(out, in[i]);
         }
         return out;
     }
 
     template<typename func, typename T, int N, int decimation_factor = 4>
-    T dispatch_kernel_call(sycl::queue &q, const T *input, index_t length, size_t max_items) {
+    static inline T dispatch_kernel_call(sycl::queue &q, const T *input, index_t length, size_t max_items) {
         static_assert(N > 0 && N <= 256);
         static_assert(decimation_factor > 1);
         const func op{};
@@ -102,7 +105,7 @@ namespace parallel_primitives {
 
 
     template<typename func, typename T, bool optimised_offload = true, size_t offload_threshold = 16384>
-    T reduce_device(sycl::queue &q, const T *input, index_t length) {
+    T reduce_device(sycl::queue &q, const sycl::span<T> &input) {
         index_t max_items = (uint32_t) std::min(4096ul, std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>())); // No more than 4096 items per reduction WG in DPC++
         const func op{};
         T out = get_init<T, func>();
@@ -114,16 +117,16 @@ namespace parallel_primitives {
          * We cannot submit arbitrarily big ranges for kernels. We'll use the limit of INT_MAX
          */
         index_t max_kernel_global = std::numeric_limits<int32_t>::max();
-        for (index_t processed = 0; processed < length;) {
-            index_t chunk_size = std::min(max_kernel_global, (length - processed));
-            processed += chunk_size;
+        index_t chunk_size = 0;
+        for (index_t processed = 0; processed < input.size(); processed += chunk_size) {
+            chunk_size = std::min(max_kernel_global, (input.size() - processed));
             if (optimised_offload && chunk_size < offload_threshold && q.get_device().is_gpu()) {
-                auto tmp = (T *) calloc(chunk_size, sizeof(T));
-                q.memcpy(tmp, input, chunk_size * sizeof(T)).wait();
-                out = op(out, host_reduce<func, T>(tmp, chunk_size));
-                free(tmp);
+                auto tmp = sycl::span{(T *) calloc(chunk_size, sizeof(T)), chunk_size};
+                q.memcpy(tmp.data(), input.data() + processed, tmp.size_bytes()).wait();
+                out = op(out, host_reduce<func, T>(tmp));
+                free(tmp.data());
             } else {
-                out = op(out, dispatch_kernel_call<func, T, unroll_size, decimation_factor>(q, input, chunk_size, max_items));
+                out = op(out, dispatch_kernel_call<func, T, unroll_size, decimation_factor>(q, input.data() + processed, chunk_size, max_items));
             }
         }
         return out;
@@ -131,15 +134,13 @@ namespace parallel_primitives {
 
 
     template<typename func, typename T, bool optimised_offload = true, size_t offload_threshold = 16384>
-    T reduce(sycl::queue &q, const T *input, index_t length, index_t) {
-        if (length < offload_threshold && optimised_offload && q.get_device().is_gpu()) {
-            return host_reduce<func, T>(input, length);
+    T reduce(sycl::queue &q, const sycl::span<T> &input) {
+        if (input.size() < offload_threshold && optimised_offload && q.get_device().is_gpu()) {
+            return host_reduce<func, T>(input);
         }
-
-        T *d_in = sycl::malloc_device<T>(length, q);
-        q.memcpy(d_in, input, length * sizeof(T)).wait();
-        T out = reduce_device<func, optimised_offload, offload_threshold>(q, d_in, length);
-        sycl::free(d_in, q);
+        auto d_in = usm_unique_ptr<T, alloc::device>(input.size(), q);
+        q.memcpy(d_in.get(), input.data(), input.size_bytes()).wait();
+        T out = reduce_device<func, T, optimised_offload, offload_threshold>(q, d_in.get_span());
         return out;
     }
 }

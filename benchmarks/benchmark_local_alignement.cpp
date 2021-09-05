@@ -8,7 +8,7 @@ struct bad_align {
 
 struct better_align {
     float a, b, c, d;
-    float pad;
+    [[maybe_unused]] float pad;
 };
 
 template<typename T>

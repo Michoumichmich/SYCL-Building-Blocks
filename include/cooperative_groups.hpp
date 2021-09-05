@@ -82,20 +82,14 @@ private:
         }
     }
 
-    nd_range_barrier(
-            sycl::queue q,
-            const sycl::nd_range<dim> &kernel_range,
-            const std::vector<size_t> &cooperating_groups) :
-            barrier_mask_(compute_barrier_mask(kernel_range.get_group_range().size(), cooperating_groups)) {
+    nd_range_barrier(sycl::queue q, const sycl::nd_range<dim> &kernel_range, const std::vector<size_t> &cooperating_groups)
+            : barrier_mask_(compute_barrier_mask(kernel_range.get_group_range().size(), cooperating_groups)) {
         perform_check(q, kernel_range);
     }
 
     template<typename func>
-    nd_range_barrier(
-            sycl::queue q,
-            const sycl::nd_range<dim> &kernel_range,
-            func &&predicate) :
-            barrier_mask_(compute_barrier_mask(kernel_range.get_group_range().size(), predicate)) {
+    nd_range_barrier(sycl::queue q, const sycl::nd_range<dim> &kernel_range, func &&predicate)
+            :barrier_mask_(compute_barrier_mask(kernel_range.get_group_range().size(), predicate)) {
         perform_check(q, kernel_range);
     }
 
@@ -105,19 +99,13 @@ public:
      * Constructor helpers
      */
     template<typename func>
-    static nd_range_barrier<dim> *make_barrier(
-            sycl::queue &q,
-            const sycl::nd_range<dim> &kernel_range,
-            const func &predicate) {
+    static nd_range_barrier<dim> *make_barrier(sycl::queue &q, const sycl::nd_range<dim> &kernel_range, const func &predicate) {
         auto barrier = sycl::malloc_shared<nd_range_barrier<dim>>(1, q);
         return new(barrier) nd_range_barrier<dim>(q, kernel_range, predicate);
     }
 
 
-    static nd_range_barrier<dim> *make_barrier(
-            sycl::queue &q,
-            const sycl::nd_range<dim> &kernel_range,
-            const std::vector<size_t> &cooperating_groups = {}) {
+    static nd_range_barrier<dim> *make_barrier(sycl::queue &q, const sycl::nd_range<dim> &kernel_range, const std::vector<size_t> &cooperating_groups = {}) {
         auto barrier = sycl::malloc_shared<nd_range_barrier<dim>>(1, q);
         return new(barrier) nd_range_barrier<dim>(q, kernel_range, cooperating_groups);
     }
@@ -170,9 +158,9 @@ template<typename KernelName>
 sycl::nd_range<1> get_max_occupancy(sycl::queue &q, size_t local_mem = 0) {
     sycl::kernel_id id = sycl::get_kernel_id<KernelName>();
     auto kernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(q.get_context()).get_kernel(id);
-    size_t private_mem_size = kernel.get_info<sycl::info::kernel_device_specific::private_mem_size>(q.get_device());
-    size_t registers = private_mem_size / 2; // find a way to get that value
-    //printf("Kernel private mem size: %lu", private_mem_size);
+    // size_t private_mem_size = kernel.get_info<sycl::info::kernel_device_specific::private_mem_size>(q.get_device());
+    // size_t registers = private_mem_size / 2; // find a way to get that value
+    // printf("Kernel private mem size: %lu", private_mem_size);
 
     size_t max_items = kernel.get_info<sycl::info::kernel_device_specific::work_group_size>(q.get_device());
     size_t max_groups = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
@@ -180,9 +168,11 @@ sycl::nd_range<1> get_max_occupancy(sycl::queue &q, size_t local_mem = 0) {
     return {sycl::range<1>(max_items * max_groups), sycl::range<1>(max_items)};
 }
 
-class cooperative_demo;
 
-/*static inline void cooperative_group_demo(sycl::queue q) {
+
+/*
+    class cooperative_demo;
+    static inline void cooperative_group_demo(sycl::queue q) {
     auto kernel_param = sycl::nd_range<1>({1024 * 16}, {1024});
     auto grid_barrier = nd_range_barrier<1>::make_barrier(q, kernel_param);
     auto pair_barrier = nd_range_barrier<1>::make_barrier(q, kernel_param, {0, 10});

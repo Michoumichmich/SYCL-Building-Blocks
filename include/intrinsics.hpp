@@ -71,7 +71,7 @@ namespace sycl::ext {
             asm("prefetch.L1 [%0];" :  : "r"(ptr));
         }
 #else
-        (void)ptr;
+        (void) ptr;
 #endif
     }
 
@@ -84,7 +84,7 @@ namespace sycl::ext {
             asm("prefetchu.L1 [%0];" :  : "r"(ptr));
         }
 #else
-        (void)ptr;
+        (void) ptr;
 #endif
     }
 

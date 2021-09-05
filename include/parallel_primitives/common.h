@@ -43,6 +43,9 @@ namespace parallel_primitives {
 
     template<typename T, typename func>
     constexpr static inline T get_init() {
+        static_assert(sycl::has_known_identity<func, T>::value);
+        return sycl::known_identity<func, T>::value;
+/*
         if constexpr(std::is_same_v<func, sycl::plus<>> && is_sycl_arithmetic<T>()) {
             return T{};
         } else if constexpr (std::is_same_v<func, sycl::multiplies<>> && is_sycl_arithmetic<T>()) {
@@ -63,6 +66,7 @@ namespace parallel_primitives {
             fail_to_compile<T, func>();
             return 0;
         }
+*/
     }
 
     enum class scan_type {
