@@ -1,5 +1,8 @@
-#include "../include/intrinsics.hpp"
-#include "../include/parallel_primitives/scan_decoupled_lookback.hpp"
+#include <gtest/gtest.h>
+#include <parallel_primitives/scan.hpp>
+#include <parallel_primitives/scan_cooperative.hpp>
+#include <parallel_primitives/scan_decoupled_lookback.hpp>
+
 
 /**
  * Sum should converge to PI
@@ -54,16 +57,4 @@ float wallis_product_pi(sycl::queue &q) {
     }
 
     return out[arr_size - 1];
-}
-
-
-int main() {
-    sycl::queue q{sycl::gpu_selector{}};
-
-    check_builtins();
-    check_builtins(q);
-    check_builtins(sycl::queue{sycl::host_selector{}});
-    std::cout << "Builtins OK" << std::endl;
-    basel_problem_pi(q);
-    wallis_product_pi(q);
 }

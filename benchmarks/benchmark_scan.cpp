@@ -73,9 +73,18 @@ void basel_problem_regular_scan(benchmark::State &state) {
 }
 
 
-BENCHMARK(basel_problem_decoupled_scan)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(1'000, 500'000'000);
-BENCHMARK(basel_problem_cooperative_scan)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(1'000, 500'000'000);
-BENCHMARK(basel_problem_regular_scan)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(1'000, 500'000'000);
+BENCHMARK(basel_problem_decoupled_scan)
+->
+Unit(benchmark::kMillisecond)
+->RangeMultiplier(2)->Range(1'000, 500'000'000);
+BENCHMARK(basel_problem_cooperative_scan)
+->
+Unit(benchmark::kMillisecond)
+->RangeMultiplier(2)->Range(1'000, 500'000'000);
+BENCHMARK(basel_problem_regular_scan)
+->
+Unit(benchmark::kMillisecond)
+->RangeMultiplier(2)->Range(1'000, 500'000'000);
 
 // Run benchmark
 BENCHMARK_MAIN();

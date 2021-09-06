@@ -46,8 +46,14 @@ void reduce_benchmark2(benchmark::State &state) {
     state.SetLabel(str.str());
 }
 
-BENCHMARK(reduce_benchmark)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(1, 1'300'000'000);
-BENCHMARK(reduce_benchmark2)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(1, 1'300'000'000);
+BENCHMARK(reduce_benchmark)
+->
+Unit(benchmark::kMillisecond)
+->RangeMultiplier(2)->Range(1, 1'300'000'000);
+BENCHMARK(reduce_benchmark2)
+->
+Unit(benchmark::kMillisecond)
+->RangeMultiplier(2)->Range(1, 1'300'000'000);
 
 // Run benchmark
 BENCHMARK_MAIN();

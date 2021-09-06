@@ -56,8 +56,14 @@ void better_align_bench(benchmark::State &state) {
     state.SetBytesProcessed(static_cast<int64_t>(processed_bytes));
 }
 
-BENCHMARK(better_align_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(500'000, 50'000'000);
-BENCHMARK(bad_align_bench)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(500'000, 50'000'000);
+BENCHMARK(better_align_bench)
+->
+Unit(benchmark::kMillisecond)
+->RangeMultiplier(2)->Range(500'000, 50'000'000);
+BENCHMARK(bad_align_bench)
+->
+Unit(benchmark::kMillisecond)
+->RangeMultiplier(2)->Range(500'000, 50'000'000);
 
 
 BENCHMARK_MAIN();

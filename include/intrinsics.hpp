@@ -23,7 +23,7 @@
 
 namespace internal {
 
-    bool is_in_mask(uint32_t mask, size_t idx) {
+    static inline bool is_in_mask(uint32_t mask, size_t idx) {
         return ((1u << idx) & mask) == (1u << idx);
     }
 
@@ -42,7 +42,7 @@ namespace sycl::ext {
     /**
      * @see https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__INTRINSIC__INT.html#group__CUDA__MATH__INTRINSIC__INT_1gf939c350eafa2f13d64e278549d3a8aa
      */
-    inline uint32_t funnelshift_l(uint32_t lo, uint32_t hi, uint32_t shift) {
+    static inline uint32_t funnelshift_l(uint32_t lo, uint32_t hi, uint32_t shift) {
         if (shift == 0) return hi; // To avoid shifting by 32
         return (hi << (uint) (shift % 31)) | (lo >> (uint) (32 - (shift % 31)));
     }
@@ -50,7 +50,7 @@ namespace sycl::ext {
     /**
      * @see https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__INTRINSIC__INT.html#group__CUDA__MATH__INTRINSIC__INT_1g125eeef4993d16dc8d679b239460fc34
      */
-    inline uint32_t funnelshift_r(uint32_t lo, uint32_t hi, uint32_t shift) {
+    static inline uint32_t funnelshift_r(uint32_t lo, uint32_t hi, uint32_t shift) {
         if (shift == 0) return lo; // To avoid shifting by 32
         return (lo >> shift % 31) | (hi << (32 - (shift % 31)));
     }
@@ -161,65 +161,11 @@ namespace sycl::ext {
 
 
     template<typename T>
-    T broadcast_leader(const sycl::sub_group &sg, T val) {
+    static inline T broadcast_leader(const sycl::sub_group &sg, T val) {
         return sycl::select_from_group(sg, val, 0);
     }
 
 }
 
 
-#define SYCL_ASSERT(x) \
-if(!(x)) {volatile int * ptr = nullptr ; *ptr;}
 
-template<bool b = false>
-void check_builtins() {
-    uint32_t hi = 0xDEADBEEF, lo = 0xCAFED00D;
-    SYCL_ASSERT(sycl::ext::funnelshift_l(lo, hi, 8) == 0xADBEEFCA)
-    SYCL_ASSERT(sycl::ext::funnelshift_l(lo, hi, 0) == 0xDEADBEEF)
-
-    SYCL_ASSERT(sycl::ext::funnelshift_r(lo, hi, 8) == 0xEFCAFED0)
-    SYCL_ASSERT(sycl::ext::funnelshift_r(lo, hi, 0) == 0xCAFED00D)
-
-    SYCL_ASSERT(sycl::ext::brev32(2u) == 1u << 30)
-    SYCL_ASSERT(sycl::ext::brev32(0xFu) == 0xFu << 28)
-    SYCL_ASSERT(sycl::ext::brev32(0) == 0)
-    SYCL_ASSERT(sycl::ext::brev32(sycl::ext::brev32(lo)) == lo)
-
-    SYCL_ASSERT(sycl::ext::brev64(1) == 1ul << 63)
-    SYCL_ASSERT(sycl::ext::brev64(0xFu) == 0xFul << 60)
-    SYCL_ASSERT(sycl::ext::brev64(0) == 0)
-    SYCL_ASSERT(sycl::ext::brev64(sycl::ext::brev64(lo)) == lo)
-}
-
-template<bool b = false>
-void check_builtins(sycl::queue q) {
-    bool is_host = q.is_host();
-    q.single_task<class tests>([]() {
-        check_builtins();
-    }).wait_and_throw();
-
-    q.parallel_for<class tests2>(sycl::nd_range<1>(32, 32), [=](sycl::nd_item<1> it) {
-        check_builtins();
-        if (is_host) return;
-        auto sg = it.get_sub_group();
-        auto mask_all = sycl::ext::predicate_to_mask(sg, [&](size_t i) { return true; }); // Select threads where tid is even
-        auto mask_even = sycl::ext::predicate_to_mask(sg, [&](size_t i) { return i % 2 == 0; }); // Select threads where tid is even
-        auto mask_odd = sycl::ext::predicate_to_mask(sg, [&](size_t i) { return i % 2 != 0; }); // Select threads where tid is even
-
-        SYCL_ASSERT(sycl::popcount(sycl::ext::ballot(sg, 1)) == sg.get_local_range().size())
-        SYCL_ASSERT(0 == sycl::ext::broadcast_leader(sg, sg.get_local_linear_id()))
-        SYCL_ASSERT(sycl::ext::match_all(sg, 1, 1))
-        SYCL_ASSERT(sycl::ext::match_all(sg, mask_all, 0xDEADBEEF))
-        SYCL_ASSERT(!sycl::ext::match_all(sg, mask_all, it.get_local_linear_id()))
-
-        SYCL_ASSERT(sycl::ext::match_all(sg, mask_even, it.get_local_linear_id() % 2))
-
-        uint32_t expected = (it.get_local_linear_id() % 2 == 0) ? mask_even : mask_odd;
-        SYCL_ASSERT(expected == sycl::ext::match_any(sg, it.get_local_linear_id() % 2 == 0))
-
-        int val;
-        sycl::ext::prefetch(&val);
-
-
-    }).wait_and_throw();
-}
