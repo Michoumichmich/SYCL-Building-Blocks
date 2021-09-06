@@ -20,7 +20,7 @@
 #pragma once
 
 
-#include "common.h"
+#include "internal/common.h"
 #include "../cooperative_groups.hpp"
 #include "../usm_smart_ptr.hpp"
 #include <numeric>
@@ -107,7 +107,14 @@ namespace parallel_primitives {
 
     template<scan_type type, typename func, typename T>
     void scan_device(sycl::queue &q, const T *input, T *output, index_t length) {
-        index_t max_items = (uint32_t) std::min(4096ul, std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>())); // No more than 4096 items per reduction WG in DPC++
+
+        auto max_kernel_items = std::min(
+                internal::get_max_work_items<internal::scan_kernel_propagate<type, func, T>>(q),
+                internal::get_max_work_items<internal::scan_kernel_prescan<type, func, T>>(q)
+        );
+
+        index_t max_items = std::min(4096ul, std::max(1ul, max_kernel_items)); // No more than 4096 items per reduction WG in DPC++
+
         index_t sm_count = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
         index_t work_ratio_per_item = 1024;
         max_items = std::min(max_items, length);

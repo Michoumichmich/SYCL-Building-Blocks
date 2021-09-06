@@ -14,6 +14,8 @@
 
 namespace parallel_primitives::decoupled_lookback_internal {
 
+    using internal::get_init;
+
     enum class status : char {
         aggregate_available,
         prefix_available,

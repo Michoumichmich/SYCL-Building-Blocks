@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "internal/common.h"
 #include "../usm_smart_ptr.hpp"
 #include <numeric>
 
@@ -61,7 +61,7 @@ namespace parallel_primitives {
     template<typename func, typename T>
     static inline T host_reduce(const sycl::span<const T> &in) {
         const func op{};
-        T out = get_init<T, func>();
+        T out = internal::get_init<T, func>();
         for (size_t i = 0; i < in.size(); ++i) {
             out = op(out, in[i]);
         }
@@ -73,7 +73,7 @@ namespace parallel_primitives {
         static_assert(N > 0 && N <= 256);
         static_assert(decimation_factor > 1);
         const func op{};
-        T out = get_init<T, func>();
+        T out = internal::get_init<T, func>();
         size_t processed = 0;
         size_t scaled_length = length / N;
 
@@ -108,7 +108,7 @@ namespace parallel_primitives {
     T reduce_device(sycl::queue &q, const sycl::span<T> &input) {
         index_t max_items = (uint32_t) std::min(4096ul, std::max(1ul, q.get_device().get_info<sycl::info::device::max_work_group_size>())); // No more than 4096 items per reduction WG in DPC++
         const func op{};
-        T out = get_init<T, func>();
+        T out = internal::get_init<T, func>();
 
         constexpr int unroll_size = 64;
         constexpr int decimation_factor = 16;

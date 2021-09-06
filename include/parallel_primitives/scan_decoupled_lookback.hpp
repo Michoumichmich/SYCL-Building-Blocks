@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "internal/common.h"
 #include "scan.hpp"
 #include "../cooperative_groups.hpp"
 #include "internal/partition_descriptor.h"

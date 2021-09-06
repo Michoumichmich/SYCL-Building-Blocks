@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "internal/common.h"
 #include "../cooperative_groups.hpp"
 #include <numeric>
 #include "../usm_smart_ptr.hpp"

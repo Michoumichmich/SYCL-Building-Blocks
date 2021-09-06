@@ -20,11 +20,19 @@
 #pragma once
 
 #include <sycl/sycl.hpp>
-#include "../intrinsics.hpp"
+
 
 namespace parallel_primitives {
-
     using index_t = uint64_t;
+
+    enum class scan_type {
+        inclusive,
+        exclusive
+    };
+}
+
+namespace parallel_primitives::internal {
+
 
     template<class ... args>
     struct nothing_matched : std::false_type {
@@ -69,10 +77,6 @@ namespace parallel_primitives {
 */
     }
 
-    enum class scan_type {
-        inclusive,
-        exclusive
-    };
 
     template<typename T, int dim>
     using local_accessor = sycl::accessor<T, dim, sycl::access_mode::read_write, sycl::access::target::local>;
@@ -89,5 +93,12 @@ namespace parallel_primitives {
         size_t remainder = length % group_count;
         size_t extra_previous_work = sycl::min(group_id, remainder);
         return even_work_group + extra_previous_work;
+    }
+
+    template<typename KernelName>
+    size_t get_max_work_items(sycl::queue &q) {
+        sycl::kernel_id id = sycl::get_kernel_id<KernelName>();
+        auto kernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(q.get_context()).get_kernel(id);
+        return kernel.get_info<sycl::info::kernel_device_specific::work_group_size>(q.get_device());
     }
 }

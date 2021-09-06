@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 include_directories(../include)
 
 # If you're using the DPCPP compiler, these flags will be used. Set here the devices you want to target
-set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64,nvptx64-nvidia-cuda--sm_75 -DSYCL_USE_NATIVE_FP_ATOMICS -fcuda-flush-denormals-to-zero -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fcuda-approx-transcendentals -fsycl-id-queries-fit-in-int)
+set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda--sm_75 -DSYCL_USE_NATIVE_FP_ATOMICS -fcuda-flush-denormals-to-zero -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fcuda-approx-transcendentals -fsycl-id-queries-fit-in-int)
 #set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice)
 include(../cmake/FindSYCL.cmake)
 
@@ -43,7 +43,6 @@ add_sycl_to_target(TARGET benchmark_scan SOURCES benchmark_scan.cpp)
 add_executable(benchmark_reduce benchmark_reduce.cpp)
 target_link_libraries(benchmark_reduce PRIVATE benchmark::benchmark)
 add_sycl_to_target(TARGET benchmark_reduce SOURCES benchmark_reduce.cpp)
-
 
 add_executable(benchmark_alignement benchmark_local_alignement.cpp)
 target_link_libraries(benchmark_alignement PRIVATE benchmark::benchmark)
