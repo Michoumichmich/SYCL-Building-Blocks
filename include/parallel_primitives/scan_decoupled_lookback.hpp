@@ -19,16 +19,15 @@
 
 #pragma once
 
-#include "internal/common.h"
+#include "internal/partition_descriptor.h"
 #include "scan.hpp"
 #include "../cooperative_groups.hpp"
-#include "internal/partition_descriptor.h"
 
 namespace parallel_primitives {
     namespace internal {
         template<typename T, typename func>
-        //using partition_descriptor = decoupled_lookback_internal::partition_descriptor_impl<T, func, (sizeof(decoupled_lookback_internal::data<T, func>) <= 8)>;
         using partition_descriptor = decoupled_lookback_internal::partition_descriptor_impl<T, func, false>;
+        //using partition_descriptor = decoupled_lookback_internal::partition_descriptor_impl<T, func, (sizeof(decoupled_lookback_internal::data<T, func>) <= 8)>;
 
         template<scan_type type, typename T, typename func>
         static inline T scan_over_group(const sycl::nd_item<1> &item, const size_t &length, const T *in, T *out, const T init = get_init<T, func>()) {
@@ -203,7 +202,6 @@ namespace parallel_primitives {
             fail_to_compile<type, T, func>();
         }
     }
-
 
     template<scan_type type, typename func, typename T, bool optimised_offload = true>
     void decoupled_scan_device(sycl::queue &q, const T *input, T *output, index_t length) {

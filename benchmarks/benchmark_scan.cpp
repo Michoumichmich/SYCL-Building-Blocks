@@ -33,49 +33,43 @@ void basel_problem_decoupled_scan(benchmark::State &state) {
     static sycl::queue q{sycl::gpu_selector{}};
     auto size = static_cast<size_t>(state.range(0));
     using T = uint;
-    auto in = sycl::malloc_device<T>(size, q);
-    auto out = sycl::malloc_device<T>(size, q);
+    auto in = usm_unique_ptr<T, alloc::device>(size, q);
+    auto out = usm_unique_ptr<T, alloc::device>(size, q);
 
-    q.fill(in, T(1), size).wait();
+    q.fill(in.get(), T(1), in.size()).wait();
 
     for (auto _: state) {
-        decoupled_scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, size);
+        decoupled_scan_device<scan_type::inclusive, sycl::plus<>>(q, in.get(), out.get(), size);
     }
 
-    state.SetBytesProcessed(static_cast<int64_t>(sizeof(T) * state.iterations() * size));
+    state.SetBytesProcessed(static_cast<int64_t>(state.iterations() * in.size_bytes()));
     std::stringstream str;
     T out_v;
-    q.memcpy(&out_v, out + size - 1, sizeof(T)).wait();
+    q.memcpy(&out_v, out.get() + size - 1, sizeof(T)).wait();
     str << "Result: " << out_v << " expected: " << size;
     state.SetLabel(str.str());
-    sycl::free(in, q);
-    sycl::free(out, q);
 }
-
 
 void basel_problem_regular_scan(benchmark::State &state) {
     static sycl::queue q{sycl::gpu_selector{}};
     auto size = static_cast<size_t>(state.range(0));
     using T = float;
-    auto in = sycl::malloc_shared<T>(size, q);
-    auto out = sycl::malloc_shared<T>(size, q);
+    auto in = usm_unique_ptr<T, alloc::shared>(size, q);
+    auto out = usm_unique_ptr<T, alloc::shared>(size, q);
 
     for (size_t i = 0; i < size; ++i) {
         auto idx = (double) (i + 1);
-        in[i] = (T) (1. / (idx * idx));
+        in.get()[i] = (T) (1. / (idx * idx));
     }
 
     for (auto _: state) {
-        scan_device<scan_type::inclusive, sycl::plus<>>(q, in, out, size);
+        scan_device<scan_type::inclusive, sycl::plus<>>(q, in.get(), out.get(), size);
     }
 
-
-    state.SetBytesProcessed(static_cast<int64_t>(sizeof(T) * state.iterations() * size));
+    state.SetBytesProcessed(static_cast<int64_t>(in.size_bytes() * state.iterations()));
     std::stringstream str;
-    str << "Result: " << std::sqrt(6 * (double) out[size - 1]);
+    str << "Result: " << std::sqrt(6 * (double) out.get()[size - 1]);
     state.SetLabel(str.str());
-    sycl::free(in, q);
-    sycl::free(out, q);
 }
 
 

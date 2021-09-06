@@ -21,7 +21,6 @@
 
 
 #include "internal/common.h"
-#include "../cooperative_groups.hpp"
 #include "../usm_smart_ptr.hpp"
 #include <numeric>
 

@@ -2,6 +2,7 @@
 
 #include <sycl/sycl.hpp>
 #include "../../intrinsics.hpp"
+#include "common.h"
 
 #ifndef ATOMIC_REF_NAMESPACE
 #ifdef USING_DPCPP
