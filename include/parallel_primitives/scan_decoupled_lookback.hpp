@@ -180,7 +180,7 @@ namespace parallel_primitives {
     }
 
     template<scan_type type, typename func, typename T>
-    static inline void host_scan(const T *input, T *output, index_t length, T init = get_init<T, func>()) {
+    static inline void host_scan(const T *input, T *output, index_t length, T init = internal::get_init<T, func>()) {
         const func op{};
         if (length == 0) {
             return;

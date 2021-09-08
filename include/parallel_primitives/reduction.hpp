@@ -22,6 +22,7 @@
 #include "internal/common.h"
 #include "../usm_smart_ptr.hpp"
 #include <numeric>
+#include <intrinsics.hpp>
 
 using namespace usm_smart_ptr;
 
@@ -44,11 +45,17 @@ namespace parallel_primitives {
 //                                const size_t size = item.get_sub_group().get_max_local_range().size();
 //                                const size_t global_offset = N * item.get_group_linear_id() * item.get_local_range().size();
 //                                const T *in = d_in + global_offset + N * size * (item.get_local_linear_id() / size) + item.get_local_linear_id() % (size);
-                                const size_t size = item.get_local_range().size();
+                                const uint size = item.get_local_range().size();
                                 const T *in = d_in + N * item.get_group_linear_id() * size + item.get_local_linear_id();
 #pragma unroll
-                                for (size_t i = 0; i < N; ++i) {
-                                    reducer.combine(in[i * size]);
+                                for (uint i = 0; i < N; ++i) {
+                                    //auto tmp = sycl::reduce_over_group(item.get_sub_group(), in[i * size], func{});
+                                    //if (item.get_sub_group().leader()) {
+                                    //         reducer.combine(tmp);
+                                    //       }
+                                    auto tmp = in[i * size];
+                                    //item.barrier();
+                                    reducer.combine(tmp);
                                 }
                             });
                 }).wait();
@@ -102,7 +109,6 @@ namespace parallel_primitives {
 
         return out;
     }
-
 
     template<typename func, typename T, bool optimised_offload = true, size_t offload_threshold = 16384>
     T reduce_device(sycl::queue &q, const sycl::span<T> &input) {
