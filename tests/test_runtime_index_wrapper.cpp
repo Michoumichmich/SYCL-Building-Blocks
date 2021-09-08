@@ -1,6 +1,8 @@
 #include <runtime_index_wrapper.h>
 #include <gtest/gtest.h>
-#include <sycl/sycl.hpp>
+
+
+using sycl::ext::runtime_index_wrapper;
 
 /**
  * Size deduced
