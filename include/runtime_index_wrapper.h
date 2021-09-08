@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <array>
 
 namespace details {
     template<class...>
@@ -28,7 +29,7 @@ template<class T, class Index>
 using has_subscript = can_apply<subscript_t, T, Index>;
 
 template<int idx_max, typename func, typename T = subscript_t<func, int>>
-static inline T &runtime_index_wrapper(func &f, const int i) {
+static inline constexpr T &runtime_index_wrapper(func &f, const int i) {
     static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
     static_assert(!std::is_array_v<func>, "Not for arrays");
     if constexpr (idx_max == 0) {
@@ -43,7 +44,7 @@ static inline T &runtime_index_wrapper(func &f, const int i) {
 }
 
 template<int idx_max, typename func, typename T = subscript_t<func, int>>
-static inline T runtime_index_wrapper(const func &f, const int i) {
+static inline constexpr T runtime_index_wrapper(const func &f, const int i) {
     static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
     static_assert(!std::is_array_v<func>, "Not for arrays");
     if constexpr (idx_max == 0) {
@@ -58,7 +59,7 @@ static inline T runtime_index_wrapper(const func &f, const int i) {
 }
 
 template<typename T, int N, int idx_max = N - 1>
-static inline T &runtime_index_wrapper(T (&arr)[N], const int i) {
+static inline constexpr T &runtime_index_wrapper(T (&arr)[N], const int i) {
     static_assert(idx_max < N);
     if constexpr (idx_max == 0) {
         return arr[idx_max];
@@ -67,6 +68,20 @@ static inline T &runtime_index_wrapper(T (&arr)[N], const int i) {
             return arr[idx_max];
         } else {
             return runtime_index_wrapper<T, N, idx_max - 1>(arr, i);
+        }
+    }
+}
+
+template<typename T, size_t N, int idx_max = N - 1>
+static inline constexpr T &runtime_index_wrapper(std::array<T, N> &array, const size_t i) {
+    static_assert(idx_max < N);
+    if constexpr (idx_max == 0) {
+        return array[idx_max];
+    } else {
+        if (i == idx_max) {
+            return array[idx_max];
+        } else {
+            return runtime_index_wrapper<T, N, idx_max - 1>(array, i);
         }
     }
 }

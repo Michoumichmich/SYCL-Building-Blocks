@@ -2,6 +2,9 @@
 #include <gtest/gtest.h>
 #include <sycl/sycl.hpp>
 
+/**
+ * Size deduced
+ */
 void check_stack_array() {
     constexpr int size = 10;
     size_t arr[size];
@@ -15,18 +18,24 @@ void check_stack_array() {
 
 }
 
+/**
+ * Size deduced
+ */
 void check_std_array() {
     constexpr int size = 10;
     std::array<size_t, size> arr{};
     for (int i = 0; i < size; ++i) {
-        runtime_index_wrapper<size>(arr, i) = (size_t) i;
+        runtime_index_wrapper(arr, i) = (size_t) i;
     }
 
     for (int i = 0; i < size; ++i) {
-        ASSERT_EQ(runtime_index_wrapper<size>(arr, i), (size_t) i);
+        ASSERT_EQ(runtime_index_wrapper(arr, i), (size_t) i);
     }
 }
 
+/**
+ * Size cannot be deduced
+ */
 void check_std_vector() {
     constexpr int size = 10;
     std::vector<size_t> arr(size, 0);
@@ -40,6 +49,9 @@ void check_std_vector() {
 }
 
 
+/**
+ * Size cannot be deduced
+ */
 void check_sycl_id() {
     sycl::id<3> id{1, 2, 3};
     ASSERT_EQ(runtime_index_wrapper<3>(id, 0), 1);
