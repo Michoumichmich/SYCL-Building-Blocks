@@ -41,6 +41,7 @@ set(all_sources
         test_pointers.cpp
         test_queue_helpers.cpp
         test_scan.cpp
+        test_runtime_index_wrapper.cpp
         )
 
 

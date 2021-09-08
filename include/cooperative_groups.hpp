@@ -23,7 +23,7 @@
 #include <numeric>
 
 #ifndef ATOMIC_REF_NAMESPACE
-#ifdef USING_DPCPP
+#ifdef USING_DPCPP //SYCL_IMPLEMENTATION_ONEAPI
 #define ATOMIC_REF_NAMESPACE sycl::ext::oneapi
 #else
 #define ATOMIC_REF_NAMESPACE sycl
