@@ -48,4 +48,8 @@ add_executable(benchmark_alignement benchmark_local_alignement.cpp)
 target_link_libraries(benchmark_alignement PRIVATE benchmark::benchmark)
 add_sycl_to_target(TARGET benchmark_alignement SOURCES benchmark_local_alignement.cpp)
 
+add_executable(benchmark_registers benchmark_array_register.cpp)
+target_link_libraries(benchmark_registers PRIVATE benchmark::benchmark)
+add_sycl_to_target(TARGET benchmark_registers SOURCES benchmark_array_register.cpp)
+
 
