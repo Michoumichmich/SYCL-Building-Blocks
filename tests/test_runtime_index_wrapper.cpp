@@ -1,14 +1,15 @@
-#include <runtime_index_wrapper.h>
+#include <runtime_index_wrapper.hpp>
 #include <gtest/gtest.h>
 
 
 using sycl::ext::runtime_index_wrapper;
+using sycl::ext::runtime_index_wrapper_log;
+constexpr int size = 20;
 
 /**
  * Size deduced
  */
 void check_stack_array() {
-    constexpr int size = 10;
     size_t arr[size];
     for (int i = 0; i < size; ++i) {
         runtime_index_wrapper(arr, i) = (size_t) i;
@@ -17,21 +18,39 @@ void check_stack_array() {
     for (int i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr, i), (size_t) i);
     }
+}
 
+void check_stack_array_log() {
+    size_t arr[size];
+    for (int i = 0; i < size; ++i) {
+        runtime_index_wrapper_log(arr, i) = (size_t) i;
+    }
+
+    for (int i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper_log(arr, i), (size_t) i);
+    }
 }
 
 /**
  * Size deduced
  */
 void check_std_array() {
-    constexpr int size = 10;
     std::array<size_t, size> arr{};
     for (int i = 0; i < size; ++i) {
         runtime_index_wrapper(arr, i) = (size_t) i;
     }
-
     for (int i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr, i), (size_t) i);
+    }
+}
+
+void check_std_array_log() {
+    std::array<size_t, size> arr{};
+    for (int i = 0; i < size; ++i) {
+        runtime_index_wrapper_log(arr, i) = (size_t) i;
+    }
+    for (int i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper_log(arr, i), (size_t) i);
     }
 }
 
@@ -39,14 +58,22 @@ void check_std_array() {
  * Size cannot be deduced
  */
 void check_std_vector() {
-    constexpr int size = 10;
     std::vector<size_t> arr(size, 0);
     for (int i = 0; i < size; ++i) {
         runtime_index_wrapper<size>(arr, i) = (size_t) i;
     }
-
     for (int i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper<size>(arr, i), (size_t) i);
+    }
+}
+
+void check_std_vector_log() {
+    std::vector<size_t> arr(size, 0);
+    for (int i = 0; i < size; ++i) {
+        runtime_index_wrapper_log<size>(arr, i) = (size_t) i;
+    }
+    for (int i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper_log<size>(arr, i), (size_t) i);
     }
 }
 
@@ -60,7 +87,14 @@ void check_sycl_id() {
     ASSERT_EQ(runtime_index_wrapper<3>(id, 1), 2);
     runtime_index_wrapper<3>(id, 2) = 0;
     ASSERT_EQ(runtime_index_wrapper<3>(id, 2), 0);
+}
 
+void check_sycl_id_log() {
+    sycl::id<3> id{1, 2, 3};
+    ASSERT_EQ(runtime_index_wrapper_log<3>(id, 0), 1);
+    ASSERT_EQ(runtime_index_wrapper_log<3>(id, 1), 2);
+    runtime_index_wrapper_log<3>(id, 2) = 0;
+    ASSERT_EQ(runtime_index_wrapper_log<3>(id, 2), 0);
 }
 
 
@@ -68,14 +102,30 @@ TEST(runtime_index_wrapper, stack_array) {
     check_stack_array();
 }
 
+TEST(runtime_index_wrapper_log, stack_array) {
+    check_stack_array_log();
+}
+
 TEST(runtime_index_wrapper, std_array) {
     check_std_array();
+}
+
+TEST(runtime_index_wrapper_log, std_array) {
+    check_std_array_log();
 }
 
 TEST(runtime_index_wrapper, std_vector) {
     check_std_vector();
 }
 
+TEST(runtime_index_wrapper_log, std_vector) {
+    check_std_vector_log();
+}
+
 TEST(runtime_index_wrapper, sycl_id) {
     check_sycl_id();
+}
+
+TEST(runtime_index_wrapper_log, sycl_id) {
+    check_sycl_id_log();
 }
