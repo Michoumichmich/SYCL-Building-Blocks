@@ -147,4 +147,50 @@ namespace sycl::ext {
     }
 
 
+    /**
+     * SYCL VEC
+     */
+
+    template<template<typename, int> class vec_t, typename T, int N>
+    static inline constexpr T &runtime_index_wrapper(vec_t<T, N> &vec, const int i) {
+        return detail::runtime_index_wrapper_internal<T, vec_t<T, N>, N>(vec, i);
+    }
+
+    template<template<typename, int> class vec_t, typename T, int N>
+    static inline constexpr T runtime_index_wrapper(const vec_t<T, N> &vec, const int i) {
+        return detail::runtime_index_wrapper_internal<T, vec_t<T, N>, N>(vec, i);
+    }
+
+    template<template<typename, int> class vec_t, typename T, int N>
+    static inline constexpr T &runtime_index_wrapper_log(vec_t<T, N> &vec, const int i) {
+        return detail::runtime_index_wrapper_log_internal<T, vec_t<T, N>, N>(vec, i);
+    }
+
+    template<template<typename, int> class vec_t, typename T, int N>
+    static inline constexpr T runtime_index_wrapper_log(const vec_t<T, N> &vec, const int i) {
+        return detail::runtime_index_wrapper_log_internal<T, vec_t<T, N>, N>(vec, i);
+    }
+
+    /**
+     * SYCL ID
+     */
+    template<template<int> class vec_t, int N>
+    static inline constexpr size_t &runtime_index_wrapper(vec_t<N> &vec, const int i) {
+        return detail::runtime_index_wrapper_internal<size_t, vec_t<N>, N>(vec, i);
+    }
+
+    template<template<int> class vec_t, int N>
+    static inline constexpr size_t runtime_index_wrapper(const vec_t<N> &vec, const int i) {
+        return detail::runtime_index_wrapper_internal<size_t, vec_t<N>, N>(vec, i);
+    }
+
+    template<template<int> class vec_t, int N>
+    static inline constexpr size_t &runtime_index_wrapper_log(vec_t<N> &vec, const int i) {
+        return detail::runtime_index_wrapper_log_internal<size_t, vec_t<N>, N>(vec, i);
+    }
+
+    template<template<int> class vec_t, int N>
+    static inline constexpr size_t runtime_index_wrapper_log(const vec_t<N> &vec, const int i) {
+        return detail::runtime_index_wrapper_log_internal<size_t, vec_t<N>, N>(vec, i);
+    }
 }
