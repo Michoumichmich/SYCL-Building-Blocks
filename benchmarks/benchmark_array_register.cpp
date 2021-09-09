@@ -2,7 +2,6 @@
 #include <benchmark/benchmark.h>
 
 using sycl::ext::runtime_index_wrapper;
-using sycl::ext::runtime_index_wrapper_store;
 struct my_struct {
     uint i = 1, j = 2;
     uint array[5] = {0};
