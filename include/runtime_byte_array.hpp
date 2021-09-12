@@ -31,9 +31,9 @@ public:
      * @param i index
      * @return the byte
      */
-    [[nodiscard]] constexpr uint8_t read(uint i) {
+    [[nodiscard]] constexpr uint8_t read(const uint &i) const {
         storage_type word = sycl::ext::runtime_index_wrapper(storage_array_, i / sizeof(storage_type));
-        return get_byte(word, i % sizeof(storage_type));
+        return sycl::ext::get_byte(word, i % sizeof(storage_type));
     }
 
     /**
@@ -41,7 +41,7 @@ public:
      * @param i index
      * @return the byte
      */
-    [[nodiscard]] constexpr uint8_t operator[](uint i) {
+    [[nodiscard]] constexpr uint8_t operator[](const uint &i) const {
         return read(i);
     }
 
@@ -50,15 +50,11 @@ public:
      * @param i index
      * @return the byte written
      */
-    constexpr uint8_t write(uint i, uint8_t write_byte) {
+    constexpr uint8_t write(const uint &i, const uint8_t &write_byte) {
         return sycl::ext::runtime_index_wrapper_store_byte(storage_array_, i / sizeof(storage_type), write_byte, i % sizeof(storage_type));
     }
 
 private:
-
-    static inline constexpr uint8_t get_byte(const storage_type &word, uint idx) {
-        return (word >> (8 * idx)) & 0xff;
-    }
 
     static constexpr int get_storage_size() {
         return (N + sizeof(storage_type) - 1) / sizeof(storage_type);

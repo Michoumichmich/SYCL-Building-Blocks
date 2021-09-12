@@ -124,10 +124,26 @@ namespace sycl::ext {
     template<typename T>
     static inline std::enable_if_t<std::is_same_v<T, std::byte> || std::is_same_v<T, sycl::uchar>, uint32_t>
     upsample(const T &hi_hi, const T &hi, const T &lo, const T &lo_lo) {
-        uint16_t hi_upsampled = ((uint16_t) hi_hi) << 8 | hi;
-        uint16_t lo_upsampled = ((uint16_t) lo) << 8 | lo_lo;
+        uint16_t hi_upsampled = (uint16_t(hi_hi) << 8) + hi;
+        uint16_t lo_upsampled = (uint16_t(lo) << 8) + lo_lo;
         return sycl::upsample(hi_upsampled, lo_upsampled);
     }
+
+
+    template<typename T>
+    static inline constexpr uint8_t get_byte(const T &word, const uint &idx) {
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+        return (word >> (8 * idx)) & 0xFF;
+    }
+
+    template<typename T>
+    static inline constexpr T set_byte(const T &word, const uint8_t &byte_in, const uint &idx) {
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+        T select_mask = ~(T(0xFF) << (idx * 8));
+        T new_val = (T(byte_in) & 0xFF) << (idx * 8);
+        return (word & select_mask) + new_val;
+    }
+
 
     template<typename func>
     static inline uint32_t predicate_to_mask(const sycl::sub_group &sg, func &&predicate) {

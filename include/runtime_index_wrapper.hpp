@@ -25,6 +25,7 @@
 #include <sycl/sycl.hpp>
 #include <type_traits>
 #include <array>
+#include <intrinsics.hpp>
 
 namespace sycl::ext {
     namespace runtime_idx_detail {
@@ -147,16 +148,10 @@ switch(idx){                                            \
         template<typename T, typename array_t, int N, int idx_max = N - 1>
         static inline constexpr void runtime_index_wrapper_internal_store_byte(array_t &arr, const uint &word_idx, const uint8_t &byte_in, const uint &byte_idx) {
             static_assert(idx_max >= 0 && idx_max < N);
-
-            auto set_byte = [&](T word) {
-                T select_mask = ~(T{0xFF} << (byte_idx * 8));
-                T new_val = (T(byte_in) & 0xFF) << (byte_idx * 8);
-                return (word & select_mask) | new_val;
-            };
-
 #pragma unroll
             for (uint i = 0; i < N; ++i) {
-                arr[i] = (word_idx == i) ? set_byte(arr[i]) : arr[i];
+                arr[i] = (word_idx == i) ? set_byte(arr[i], byte_in, byte_idx) : arr[i];
+                //if (word_idx == i) set_byte_ref(arr[i], byte_in, byte_idx); else arr[i] = arr[i];
             }
         }
 
@@ -358,7 +353,7 @@ switch(idx){                                            \
          * @param i Index where to read
          * @return Value read
          */
-        [[nodiscard]]  auto operator[](uint i) {
+        [[nodiscard]]  auto operator[](uint i) const {
             return runtime_index_wrapper(array_ref_, i);
         }
 
@@ -367,7 +362,7 @@ switch(idx){                                            \
          * @param i Index where to read
          * @return Value read
          */
-        [[nodiscard]] auto read(uint i) {
+        [[nodiscard]] auto read(uint i) const {
             return runtime_index_wrapper(array_ref_, i);
         }
 
@@ -391,7 +386,7 @@ switch(idx){                                            \
          * @return Value read
          */
         template<int N>
-        [[nodiscard]] auto operator[](uint i) {
+        [[nodiscard]] auto operator[](uint i) const {
             return runtime_index_wrapper<N>(array_ref_, i);
         }
 
@@ -403,7 +398,7 @@ switch(idx){                                            \
          * @return Value read
          */
         template<int N>
-        [[nodiscard]] auto read(uint i) {
+        [[nodiscard]] auto read(uint i) const {
             return runtime_index_wrapper<N>(array_ref_, i);
         }
 
