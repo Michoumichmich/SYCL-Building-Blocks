@@ -4,8 +4,8 @@ Header-based SYCL reusable algorithms and data structures.
 
 ## Runtime Index Wrapper
 
-Functions used to access arrays-based variables with a dynamic/runtime index. This allows to force the registerization of these arrays which is not possible otherwise, on GPU. The benchmarks give a performance of **12**
-billion iterations per second with the regular indexing. With our method we're achieving about **470** billion iterations per second.
+Functions used to access arrays-based variables with a dynamic/runtime index. This allows to force the registerization of these arrays which is not possible otherwise, on GPU. The benchmarks give a performance of **37**
+billion iterations per second with the regular indexing. With our method we're achieving about **1040** billion iterations per second.
 
 When writing, if all threads access the same index only, there is a ligher/faster version available by defining `RUNTIME_IDX_STORE_USE_SWITCH`. Sometimes registerization won't happen using. Read speed is not affected.
 
@@ -20,8 +20,16 @@ With Google benchmark on a GTX 1660 Ti:
 
 ```
 Benchmark                       Time      CPU  Iterations     UserCounters...
-registerized_array/268435456 57.2 ms  57.1 ms  12 items_per_second=469.731G/s
-stack_array/268435456        2216 ms  2214 ms   1 items_per_second=12.1234G/s
+registerized_array/1073741824 57.2 ms  57.1 ms  12 items_per_second=1040G/s
+stack_array/1073741824        2216 ms  2214 ms   1 items_per_second=37.3725G/s
+```
+
+And on a CPU:
+
+```
+Benchmark                       Time      CPU  Iterations     UserCounters...
+registerized_array/1073741824  3.98 ms   3.95 ms   178 items_per_second=27.1994T/s
+stack_array/1073741824         7.02 ms   6.99 ms   100 items_per_second=15.3549T/s
 ```
 
 #### Use example

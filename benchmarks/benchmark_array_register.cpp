@@ -22,12 +22,12 @@ size_t benchmark_array_regular(size_t size) {
         data.array[0] = *ptr;
         uint init = *ptr;
         for (int c = 0; c < 100; ++c) {
-            data.some_coordinates[0] = data.array[(c + data.array[0]) % sizeof(data.array)];
-            data.even_more[1] = data.some_coordinates[c % sizeof(data.some_coordinates)];
-            data.array[(init + c) % sizeof(data.array)] = c;
-            data.more[(c + init) % sizeof(data.more)] = data.array[1];
+            data.some_coordinates[0] = data.array[(c + data.array[0]) % 2];
+            data.even_more[1] = data.some_coordinates[c % 2];
+            data.array[(init + c) % 2] = c;
+            data.more[(c + init) % 2] = data.array[1];
         }
-        *ptr = data.even_more[*ptr % sizeof(data.even_more)];
+        *ptr = data.even_more[*ptr % 2];
     }).wait();
     return size * 100;
 }
@@ -40,12 +40,12 @@ size_t benchmark_array_register(size_t size) {
         data.array[0] = *ptr;
         uint init = *ptr;
         for (int c = 0; c < 100; ++c) {
-            data.some_coordinates[0] = runtime_index_wrapper(data.array, (c + data.array[0]) % sizeof(data.array));
-            data.even_more[1] = runtime_index_wrapper(data.some_coordinates, c % sizeof(data.some_coordinates));
-            runtime_index_wrapper(data.array, (init + c) % sizeof(data.array), c * init);
-            runtime_index_wrapper(data.more, (c + init) % sizeof(data.more), data.array[1]);
+            data.some_coordinates[0] = runtime_index_wrapper(data.array, (c + data.array[0]) % 2);
+            data.even_more[1] = runtime_index_wrapper(data.some_coordinates, c % 2);
+            runtime_index_wrapper(data.array, (init + c) % 2, c * init);
+            runtime_index_wrapper(data.more, (c + init) % 2, data.array[1]);
         }
-        *ptr = runtime_index_wrapper(data.even_more, *ptr % sizeof(data.even_more));
+        *ptr = runtime_index_wrapper(data.even_more, *ptr % 2);
     }).wait();
     return size * 100;
 }
@@ -64,12 +64,12 @@ size_t benchmark_array_register_with_class(size_t size) {
         sycl::ext::runtime_wrapper even_more(data.even_more);
 
         for (int c = 0; c < 100; ++c) {
-            data.some_coordinates[0] = array[(c + data.array[0]) % sizeof(data.array)];
-            data.even_more[1] = some_coordinates.read(c % sizeof(data.some_coordinates));
-            array.write((init + c) % sizeof(data.array), c * init);
-            more.write((c + init) % sizeof(data.more), data.array[1]);
+            data.some_coordinates[0] = array[(c + data.array[0]) % 2];
+            data.even_more[1] = some_coordinates.read(c % 2);
+            array.write((init + c) % 2, c * init);
+            more.write((c + init) % 2, data.array[1]);
         }
-        *ptr = even_more.read(*ptr % sizeof(data.even_more));
+        *ptr = even_more.read(*ptr % 2);
     }).wait();
     return size * 100;
 }
@@ -104,7 +104,6 @@ void registerized_array_with_class(benchmark::State &state) {
 BENCHMARK(stack_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
 BENCHMARK(registerized_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
 BENCHMARK(registerized_array_with_class)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
-
 
 
 BENCHMARK_MAIN();
