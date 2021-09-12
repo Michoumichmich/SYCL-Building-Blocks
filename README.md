@@ -4,10 +4,13 @@ Header-based SYCL reusable algorithms and data structures.
 
 ## Runtime Index Wrapper
 
-Functions used to access arrays-based variables with a dynamic/runtime index. This allows to force the registerization of these arrays which is not possible otherwise, on GPU. The benchmarks give a performance of **37**
-billion iterations per second with the regular indexing. With our method we're achieving about **1040** billion iterations per second.
+Functions and Classes used to access arrays-based types with a dynamic/runtime index. This allows to force the registerization of these arrays which is not possible otherwise, on GPU (annd even CPU!).
 
-When writing, if all threads access the same index only, there is a ligher/faster version available by defining `RUNTIME_IDX_STORE_USE_SWITCH`. Sometimes registerization won't happen using. Read speed is not affected.
+This allows also the compiler to see nex optimisations (see my SYCL Summer Session Talk). For best performance, if addressing bytes, pack them in 32/64 bit words and extract the byte yourself and use the library to
+address words.
+
+When writing to the array, if all threads access the same index only, there is a ligher/faster version available by defining `RUNTIME_IDX_STORE_USE_SWITCH`. Sometimes registerization won't happen using. Read speed is not
+affected.
 
 There is a read version, `runtime_index_wrapper_log` that uses a binary search. It reduces the number of steps, but often is slower because of thread divergence if not all the threads access the same value.
 
