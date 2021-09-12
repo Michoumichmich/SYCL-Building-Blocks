@@ -16,16 +16,16 @@ template parameter.
 
 #### Benchmarks
 
-On a GTX 1660 Ti:
+With Google benchmark on a GTX 1660 Ti:
 
 ```
-stack_array_benchmark/536870912           6915 ms         6908 ms            1 items_per_second=7.77221G/s
-register_array_benchmark/536870912         249 ms          249 ms            3 items_per_second=215.432G/s // With the wrapper
+stack_array_benchmark/536870912      6915 ms  6908 ms  1 items_per_second=7.77221G/s
+register_array_benchmark/536870912    249 ms   249 ms  3 items_per_second=215.432G/s // With the wrapper
 ```
 
 #### Use example
 
-```C+++
+```C++
 int array[10] = {0};
 runtime_index_wrapper(array, i % 10, j) // performs array[i%10]=j
 assert(j == runtime_index_wrapper(array, i % 10)); // reads the value
