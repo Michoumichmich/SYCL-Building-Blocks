@@ -34,10 +34,14 @@ namespace sycl::ext {
     namespace runtime_idx_detail {
 
 
+#ifdef RUNTIME_IDX_STORE_USE_SWITCH
 #define RUNTIME_IDX_STORE_SWITCH_CASE(id, arr, val)\
-    case (id):              \
-         (arr)[(id)] = val; \
-        break;
+        case (id): (arr)[(id)] = val; break;
+#else
+#define RUNTIME_IDX_STORE_SWITCH_CASE(id, arr, val)\
+    (arr)[(id)] = ((id)==(i)) ? (val) : (arr)[(id)] ;
+
+#endif
 
 #define RUNTIME_IDX_STORE_SWITCH_1_CASE(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(0u, arr, val)
 #define RUNTIME_IDX_STORE_SWITCH_2_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_1_CASE(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(1u, arr, val)
@@ -56,15 +60,23 @@ namespace sycl::ext {
 #define RUNTIME_IDX_STORE_SWITCH_15_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_14_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(14u, arr, val)
 #define RUNTIME_IDX_STORE_SWITCH_16_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_15_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(15u, arr, val)
 
+#ifdef USE_SWITCH
 #define GENERATE_IDX_STORE(ID, arr, idx, val)            \
 switch(idx){                                            \
     RUNTIME_IDX_STORE_SWITCH_##ID##_CASES(arr, val)     \
       default:                                          \
         (arr)[0] = val;                                 \
 }
+#else
+#define GENERATE_IDX_STORE(ID, arr, idx, val)            \
+{                                                       \
+    RUNTIME_IDX_STORE_SWITCH_##ID##_CASES(arr, val)     \
+}
+#endif
+
 
         template<typename T, typename array_t, int N, int idx_max = N - 1>
-        static inline constexpr void runtime_index_wrapper_internal_store(array_t &arr, const int &i, const T val) {
+        static inline constexpr void runtime_index_wrapper_internal_store(array_t &arr, const uint &i, const T val) {
             static_assert(idx_max >= 0 && idx_max < N);
             if constexpr (idx_max == 0 || N == 1) {
                 arr[0] = val;

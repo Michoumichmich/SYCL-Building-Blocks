@@ -5,7 +5,7 @@ using sycl::ext::runtime_index_wrapper;
 struct my_struct {
     uint i = 1, j = 2;
     uint array[5] = {0};
-    std::array<size_t, 5> some_coordinates{0, 0, 0}, more{1, 0, 2}, even_more{0, 3, 1};
+    std::array<size_t, 3> some_coordinates{0, 0, 0}, more{1, 0, 2}, even_more{0, 3, 1};
 };
 
 
@@ -22,8 +22,8 @@ size_t benchmark_array_regular(size_t size) {
         for (int c = 0; c < 100; ++c) {
             data.some_coordinates[0] = data.array[(c + data.array[0]) % sizeof(data.array)];
             data.even_more[1] = data.some_coordinates[c % sizeof(data.some_coordinates)];
-            //  data.array[(init + c) % sizeof(data.array)] = c;
-            //  data.more[(c + data.even_more[1]) % sizeof(data.more)] = data.array[1];
+            data.array[(init + c) % sizeof(data.array)] = c;
+            data.more[(c + init) % sizeof(data.more)] = data.array[1];
         }
         *ptr = data.even_more[*ptr % sizeof(data.even_more)];
     }).wait();
@@ -40,8 +40,8 @@ size_t benchmark_array_register(size_t size) {
         for (int c = 0; c < 100; ++c) {
             data.some_coordinates[0] = runtime_index_wrapper(data.array, (c + data.array[0]) % sizeof(data.array));
             data.even_more[1] = runtime_index_wrapper(data.some_coordinates, c % sizeof(data.some_coordinates));
-            //    runtime_index_wrapper(data.array, (init + c) % sizeof(data.array), c * init);
-            //   runtime_index_wrapper(data.more, (c + data.even_more[1]) % sizeof(data.more), data.array[1]);
+            runtime_index_wrapper(data.array, (init + c) % sizeof(data.array), c * init);
+            runtime_index_wrapper(data.more, (c + init) % sizeof(data.more), data.array[1]);
         }
         *ptr = runtime_index_wrapper(data.even_more, *ptr % sizeof(data.even_more));
     }).wait();

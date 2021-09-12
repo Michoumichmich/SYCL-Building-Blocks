@@ -4,16 +4,28 @@ Header-based SYCL reusable algorithms and data structures.
 
 ## Runtime Index Wrapper
 
-Functions used to access arrays-based variables with a dynamic/runtime index. This allows to force the registerization of these arrays which is not possible otherwise, on GPU. The benchmarks give a performance of **19**
-billion iterations per second with the regular indexing. With our method we're achieving about **270** billion iterations per second. Sometimes Writes still sends the array to the stack-frame. But we're still getting 3X
-better performance using the wrapper (see commented lines in benchmark)
+Functions used to access arrays-based variables with a dynamic/runtime index. This allows to force the registerization of these arrays which is not possible otherwise, on GPU. The benchmarks give a performance of **9**
+billion iterations per second with the regular indexing. With our method we're achieving about **220** billion iterations per second.
+
+When writing, if all threads access the same index only, there is a ligher/faster version available by defining `RUNTIME_IDX_STORE_USE_SWITCH`. Sometimes registerization won't happen using. Read speed is not affected.
+
+There is a read version, `runtime_index_wrapper_log` that uses a binary search. It reduces the number of steps, but often is slower because of thread divergence if not all the threads access the same value.
 
 The wrapper has a specialisation for `std::array`, `sycl::vec`, `C-style arrays` and `sycl::id`. It also accepts any type that has a subscript operator, but then the used must put the maximum accessed index in the first
 template parameter.
 
-#### Use example
+#### Benchmarks
+
+On a GTX 1660 Ti:
 
 ```
+stack_array_benchmark/536870912           6915 ms         6908 ms            1 items_per_second=7.77221G/s
+register_array_benchmark/536870912         249 ms          249 ms            3 items_per_second=215.432G/s // With the wrapper
+```
+
+#### Use example
+
+```C+++
 int array[10] = {0};
 runtime_index_wrapper(array, i % 10, j) // performs array[i%10]=j
 assert(j == runtime_index_wrapper(array, i % 10)); // reads the value
