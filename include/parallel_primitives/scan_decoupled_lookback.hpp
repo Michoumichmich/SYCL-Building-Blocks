@@ -43,9 +43,10 @@ namespace parallel_primitives {
         }
 
         template<scan_type type, typename T, typename func>
-        static inline void scan_over_sub_group(const sycl::nd_item<1> &item, const size_t &length, T *inout, const size_t &thread_id, const size_t &thread_count, T *shared_data) {
+        static inline void scan_over_sub_group(const sycl::nd_item<1> &item, const size_t &length, T *inout, const size_t &thread_id, const size_t &thread_count, T *shared_data, T init = get_init<T, func>()) {
             const func op{};
             const size_t subgroup_id = item.get_sub_group().get_group_linear_id();
+            const size_t subgroup_count = item.get_sub_group().get_group_range().size();
             for (size_t i = thread_id; i < length; i += thread_count) {
                 item.barrier(sycl::access::fence_space::local_space);
                 if constexpr(type == scan_type::inclusive) {
@@ -55,17 +56,18 @@ namespace parallel_primitives {
                 } else {
                     fail_to_compile<type, T, func>();
                 }
-                //item.barrier(sycl::access::fence_space::local_space);
-                if (item.get_sub_group().leader()) {
+                if (item.get_sub_group().get_local_linear_id() == item.get_sub_group().get_local_range().size() - 1) { // is trailer
                     shared_data[subgroup_id] = inout[i];
                 }
                 item.barrier(sycl::access::fence_space::local_space);
                 if (subgroup_id == 0) {
-                    host_scan<scan_type::exclusive, func, T>(shared_data, shared_data, 32);
+                    sycl::joint_exclusive_scan(item.get_sub_group(), shared_data, shared_data + subgroup_count, shared_data, init, op);
                 }
                 item.barrier(sycl::access::fence_space::local_space);
-                inout[i] = op(inout[i], shared_data[subgroup_id]);
-
+                if (subgroup_id != 0) {
+                    inout[i] = op(inout[i], shared_data[subgroup_id]);
+                }
+                init = shared_data[subgroup_count - 1];
             }
         }
 
@@ -83,7 +85,6 @@ namespace parallel_primitives {
             T reduced = get_init<T, func>();
             for (size_t i = thread_id; i < length; i += thread_count) {
                 T tmp = in[i];
-                //sycl::ext::prefetch(in + i + length);
                 acc[i] = tmp;
                 reduced = op(reduced, tmp);
             }
@@ -116,12 +117,13 @@ namespace parallel_primitives {
 
             q.submit([&](sycl::handler &cgh) {
                 sycl::accessor<T, 1, sycl::access::mode::read_write, sycl::access::target::local> shared_mem(sycl::range<1>(local_mem_length), cgh);
+                sycl::accessor<T, 1, sycl::access::mode::read_write, sycl::access::target::local> shared_buf(sycl::range<1>(32), cgh);
                 sycl::accessor<T, 1, sycl::access::mode::read_write, sycl::access::target::local> shared_prefix(sycl::range<1>(1), cgh);
                 sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> shared_ready_state(sycl::range<1>(1), cgh);
                 cgh.depends_on(init);
                 cgh.parallel_for<decoupled_scan_kernel<type, func, T >>(
                         kernel_range,
-                        [length_ = length, d_in, d_out, local_mem_length, shared_mem, partitions, shared_ready_state, shared_prefix](sycl::nd_item<1> item) {
+                        [length_ = length, d_in, d_out, local_mem_length, shared_mem, partitions, shared_ready_state, shared_prefix, shared_buf](sycl::nd_item<1> item) {
                             const size_t length = length_;
                             const size_t group_id = item.get_group_linear_id();
                             T *const shared_prefix_ptr = shared_prefix.get_pointer();
@@ -154,14 +156,15 @@ namespace parallel_primitives {
                                     if (thread_id == 0) {
                                         partition->set_prefix(op(aggregate, *shared_prefix_ptr));
                                     }
-
                                     scan_over_group<type, T, func>(item, this_chunk_length, shared, group_out, *shared_prefix_ptr);
-                                    //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size);
+                                    //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size, shared_buf.get_pointer(), *shared_prefix_ptr);
+                                    //store_to_global_and_increment<T, func>(group_out, this_chunk_length, shared, thread_id, group_size);
                                 } else {
                                     T aggregate = scan_over_group<type, T, func>(item, this_chunk_length, group_in, shared);
                                     //load_local<T>(group_in, this_chunk_length, shared, thread_id, group_size);
-                                    //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size);
+                                    //scan_over_sub_group<type, T, func>(item, this_chunk_length, shared, thread_id, group_size, shared_buf.get_pointer());
                                     if (thread_id == 0) {
+                                        //  T aggregate = shared_buf[item.get_sub_group().get_group_range().size() - 1];
                                         partition->set_aggregate(aggregate);
                                         *shared_prefix_ptr = partition_descriptor<T, func>::run_look_back(partitions, partition_id);
                                         partition->set_prefix(op(aggregate, *shared_prefix_ptr));
