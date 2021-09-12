@@ -1,6 +1,7 @@
 #include <runtime_index_wrapper.hpp>
 #include <benchmark/benchmark.h>
 
+
 using sycl::ext::runtime_index_wrapper;
 struct my_struct {
     uint i = 1, j = 2;
@@ -10,14 +11,10 @@ struct my_struct {
 };
 
 
-struct local_mem_benchmark_array;
-struct local_mem_benchmark_array_register;
-struct local_mem_benchmark_array_register_with_class;
-
-size_t benchmark_array_regular(size_t size) {
+size_t benchmark_regular_stack_array(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<local_mem_benchmark_array>(size, [=](sycl::id<1> id) {
+    q.parallel_for<class regular_stack_array_kernel>(size, [=](sycl::id<1> id) {
         my_struct data{};
         data.array[0] = *ptr;
         uint init = *ptr;
@@ -35,7 +32,7 @@ size_t benchmark_array_regular(size_t size) {
 size_t benchmark_array_register(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<local_mem_benchmark_array_register>(size, [=](sycl::id<1> id) {
+    q.parallel_for<class runtime_wrapper_kernel>(size, [=](sycl::id<1> id) {
         my_struct data{};
         data.array[0] = *ptr;
         uint init = *ptr;
@@ -53,7 +50,7 @@ size_t benchmark_array_register(size_t size) {
 size_t benchmark_array_register_with_class(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<local_mem_benchmark_array_register_with_class>(size, [=](sycl::id<1> id) {
+    q.parallel_for<class runtime_class_wrapper_kernel>(size, [=](sycl::id<1> id) {
         my_struct data{};
         data.array[0] = *ptr;
         uint init = *ptr;
@@ -74,11 +71,12 @@ size_t benchmark_array_register_with_class(size_t size) {
     return size * 100;
 }
 
-void stack_array(benchmark::State &state) {
+
+void regular_stack_array(benchmark::State &state) {
     auto size = static_cast<size_t>(state.range(0));
     size_t processed_items = 0;
     for (auto _: state) {
-        processed_items += benchmark_array_regular(size);
+        processed_items += benchmark_regular_stack_array(size);
     }
     state.SetItemsProcessed(static_cast<int64_t>(processed_items));
 }
@@ -101,9 +99,10 @@ void registerized_array_with_class(benchmark::State &state) {
     state.SetItemsProcessed(static_cast<int64_t>(processed_items));
 }
 
-BENCHMARK(stack_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+BENCHMARK(regular_stack_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
 BENCHMARK(registerized_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
 BENCHMARK(registerized_array_with_class)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+
 
 
 BENCHMARK_MAIN();

@@ -143,6 +143,24 @@ switch(idx){                                            \
 
 #undef GENERATE_IDX_STORE
 
+
+        template<typename T, typename array_t, int N, int idx_max = N - 1>
+        static inline constexpr void runtime_index_wrapper_internal_store_byte(array_t &arr, const uint &word_idx, const uint8_t &byte_in, const uint &byte_idx) {
+            static_assert(idx_max >= 0 && idx_max < N);
+
+            auto set_byte = [&](T word) {
+                T select_mask = ~(T{0xFF} << (byte_idx * 8));
+                T new_val = (T(byte_in) & 0xFF) << (byte_idx * 8);
+                return (word & select_mask) | new_val;
+            };
+
+#pragma unroll
+            for (uint i = 0; i < N; ++i) {
+                arr[i] = (word_idx == i) ? set_byte(arr[i]) : arr[i];
+            }
+        }
+
+
         template<typename T, typename array_t, int N, int idx_max = N - 1>
         [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_internal_read_ref(const array_t &arr, const uint &i) {
             static_assert(idx_max >= 0 && idx_max < N);
@@ -265,6 +283,13 @@ switch(idx){                                            \
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, std::array<T, N>, N>(array, i, (T) val);
         return val;
     }
+
+    template<typename T, size_t N>
+    static inline constexpr uint8_t runtime_index_wrapper_store_byte(std::array<T, N> &array, const uint &i, const uint8_t &val, const uint &byte_idx) {
+        runtime_idx_detail::runtime_index_wrapper_internal_store_byte<T, std::array<T, N>, N>(array, i, (T) val, byte_idx);
+        return val;
+    }
+
 
     template<typename T, size_t N>
     [[nodiscard]] static inline constexpr const T &runtime_index_wrapper(const std::array<T, N> &array, const uint &i) {

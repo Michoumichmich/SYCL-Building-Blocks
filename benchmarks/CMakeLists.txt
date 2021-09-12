@@ -52,4 +52,8 @@ add_executable(benchmark_registers benchmark_array_register.cpp)
 target_link_libraries(benchmark_registers PRIVATE benchmark::benchmark)
 add_sycl_to_target(TARGET benchmark_registers SOURCES benchmark_array_register.cpp)
 
+add_executable(benchmark_byte_array benchmark_byte_array.cpp)
+target_link_libraries(benchmark_byte_array PRIVATE benchmark::benchmark)
+add_sycl_to_target(TARGET benchmark_byte_array SOURCES benchmark_byte_array.cpp)
+
 

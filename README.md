@@ -63,6 +63,30 @@ acc.write<vec_size>(i, val) // performs array[i%10]=j and returns J
 assert(j == acc.read<vec_size>(i % 10)); // reads the value
 ```
 
+## runtime_byte_array
+
+This class solves the issue previously mentionned of storing bytes. It allows to increase the look-up time by packing the bytes in bigger words (default is 32 bits words).
+
+```C++
+runtime_byte_array<4> array{'S', 'Y', 'C', 'L', ..}; // Creates an array stored in a 32 bit word, by default
+
+runtime_byte_array<256, uint64_t> array2{}; // Create an array of 256 0-intialised bytes stored in 32 64-bit words.
+
+```
+
+#### Some values
+
+For arrays of 32 bytes we're still faster that both the previous wrapper and a stack-frame array.
+
+```
+registerized_and_optimised_byte_array/1073741824       2982 ms         2979 ms            1 items_per_second=36.046G/s
+registerized_byte_array/1073741824                     4479 ms         4475 ms            1 items_per_second=23.9921G/s
+stack_byte_array/1073741824                            3805 ms         3801 ms            1 items_per_second=28.2459G/s
+```
+
+For bigger arrays (>64), the regular stack-frame array is faster because our look-up time is too big. For smaller arrays (<16), the byte selection from the words introduces overhead and the regular wrapper performs
+better. Benchmark your application.
+
 ## Prefix Scan
 
 ### Decoupled lookback prefix scan

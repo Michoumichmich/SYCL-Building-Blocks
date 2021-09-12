@@ -1,6 +1,6 @@
 #include <runtime_index_wrapper.hpp>
 #include <gtest/gtest.h>
-
+#include <runtime_byte_array.hpp>
 
 using sycl::ext::runtime_index_wrapper;
 using sycl::ext::runtime_index_wrapper_log;
@@ -184,6 +184,20 @@ void check_sycl_id_log() {
 }
 
 
+template<typename T, int byte_count>
+void check_byte_array() {
+
+    runtime_byte_array<byte_count> arr{};
+
+    for (uint i = 0; i < byte_count; ++i) {
+        arr.write(i, i);
+    }
+    for (uint i = 0; i < byte_count; ++i) {
+        ASSERT_EQ(arr.read(i), i);
+    }
+}
+
+
 TEST(runtime_index_wrapper, stack_array) {
     check_stack_array();
 }
@@ -230,4 +244,23 @@ TEST(runtime_index_wrapper, sycl_id) {
 
 TEST(runtime_index_wrapper_log, sycl_id) {
     check_sycl_id_log();
+}
+
+TEST(runtime_byte_array, array) {
+    check_byte_array<uint32_t, 1>();
+    check_byte_array<uint32_t, 10>();
+    check_byte_array<uint32_t, 20>();
+    check_byte_array<uint32_t, 30>();
+    check_byte_array<uint32_t, 40>();
+    check_byte_array<uint64_t, 1>();
+    check_byte_array<uint64_t, 10>();
+    check_byte_array<uint64_t, 20>();
+    check_byte_array<uint64_t, 30>();
+    check_byte_array<uint64_t, 40>();
+    check_byte_array<uint8_t, 1>();
+    check_byte_array<uint8_t, 10>();
+    check_byte_array<uint8_t, 20>();
+    check_byte_array<uint8_t, 30>();
+    check_byte_array<uint8_t, 40>();
+
 }
