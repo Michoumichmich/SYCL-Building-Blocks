@@ -96,16 +96,16 @@ runtime_byte_array<256, uint64_t> array2{}; // Create an array of 256 0-intialis
 
 #### Some values
 
-For arrays of 32 bytes we're still faster that both the previous wrapper and a stack-frame array.
+With an array of 12 bytes:
 
 ```
-registerized_and_optimised_byte_array/1073741824       2982 ms         2979 ms            1 items_per_second=36.046G/s
-registerized_byte_array/1073741824                     4479 ms         4475 ms            1 items_per_second=23.9921G/s
-stack_byte_array/1073741824                            3805 ms         3801 ms            1 items_per_second=28.2459G/s
+registerized_and_optimised_byte_array/1073741824       2266 ms         2264 ms            1 items_per_second=47.4268G/s
+registerized_byte_array/1073741824                     2921 ms         2918 ms            1 items_per_second=36.8014G/s
+stack_byte_array/1073741824                            3433 ms         3429 ms            1 items_per_second=31.3109G/s
 ```
 
-For bigger arrays (>64), the regular stack-frame array is faster because our look-up time is too big. For smaller arrays (<16), the byte selection from the words introduces overhead and the regular wrapper performs
-better. Benchmark your application.
+For arrays of 32 bytes we're still faster that both the previous wrapper and a stack-frame array. For bigger arrays (>64), the regular stack-frame array is faster because our look-up time is too big. For smaller
+arrays (<16), the byte selection from the words introduces overhead and the regular wrapper performs better. Benchmark your application.
 
 ## [Experimental] Cooperative groups
 
