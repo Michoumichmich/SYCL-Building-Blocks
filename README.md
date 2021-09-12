@@ -2,6 +2,23 @@
 
 Header-based SYCL reusable algorithms and data structures.
 
+## Runtime Index Wrapper
+
+Functions used to access arrays-based variables with a dynamic/runtime index. This allows to force the registerization of these arrays which is not possible otherwise, on GPU. The benchmarks give a performance of **19**
+billion iterations per second with the regular indexing. With our method we're achieving about **270** billion iterations per second. Sometimes Writes still sends the array to the stack-frame. But we're still getting 3X
+better performance using the wrapper (see commented lines in benchmark)
+
+The wrapper has a specialisation for `std::array`, `sycl::vec`, `C-style arrays` and `sycl::id`. It also accepts any type that has a subscript operator, but then the used must put the maximum accessed index in the first
+template parameter.
+
+#### Use example
+
+```
+int array[10] = {0};
+runtime_index_wrapper(array, i % 10, j) // performs array[i%10]=j
+assert(j == runtime_index_wrapper(array, i % 10)); // reads the value
+```
+
 ## Prefix Scan
 
 ### Decoupled lookback prefix scan
@@ -24,4 +41,4 @@ Parallel reduction algorithm using SYCL reductors and a recursive approach to un
 
 Device wide synchronisation functions. Kernel ranges are bound to ensure forward progress, If the Nvidia GPU is using AMS this might not be enough.
 
-## Parallel Primitives
+

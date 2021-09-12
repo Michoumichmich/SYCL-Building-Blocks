@@ -32,9 +32,9 @@ namespace usm_smart_ptr {
         if constexpr(location == sycl::usm::alloc::shared) {
             return sycl::access::address_space::global_space;
         } else if constexpr(location == sycl::usm::alloc::device) {
-            return sycl::access::address_space::global_device_space;
+            return sycl::access::address_space::ext_intel_global_device_space;
         } else if constexpr(location == sycl::usm::alloc::host) {
-            return sycl::access::address_space::global_host_space;
+            return sycl::access::address_space::ext_intel_host_device_space;
         }
     }
 

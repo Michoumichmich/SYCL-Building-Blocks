@@ -22,6 +22,10 @@ void check_builtins() {
     SYCL_ASSERT(sycl::ext::brev64(0xFu) == 0xFul << 60)
     SYCL_ASSERT(sycl::ext::brev64(0) == 0)
     SYCL_ASSERT(sycl::ext::brev64(sycl::ext::brev64(lo)) == lo)
+
+    SYCL_ASSERT(sycl::ext::upsample<sycl::uchar>('S', 'Y', 'C', 'L') == 0x5359434c)
+
+
 }
 
 

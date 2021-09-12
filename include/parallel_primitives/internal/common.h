@@ -19,8 +19,7 @@
 
 #pragma once
 
-#include <sycl/sycl.hpp>
-
+#include "../../utils.h"
 
 namespace parallel_primitives {
     using index_t = uint64_t;
@@ -32,17 +31,6 @@ namespace parallel_primitives {
 }
 
 namespace parallel_primitives::internal {
-
-
-    template<class ... args>
-    struct nothing_matched : std::false_type {
-    };
-
-    template<class ... args>
-    constexpr void fail_to_compile() {
-        static_assert(nothing_matched<args...>::value);
-    }
-
 
     template<typename T>
     constexpr bool is_sycl_arithmetic() {

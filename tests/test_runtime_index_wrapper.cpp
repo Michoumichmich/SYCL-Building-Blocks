@@ -12,7 +12,7 @@ constexpr int size = 20;
 void check_stack_array() {
     size_t arr[size];
     for (int i = 0; i < size; ++i) {
-        runtime_index_wrapper(arr, i) = (size_t) i;
+        runtime_index_wrapper(arr, i, i);
     }
 
     for (int i = 0; i < size; ++i) {
@@ -23,7 +23,7 @@ void check_stack_array() {
 void check_stack_array_log() {
     size_t arr[size];
     for (int i = 0; i < size; ++i) {
-        runtime_index_wrapper_log(arr, i) = (size_t) i;
+        runtime_index_wrapper(arr, i, i);
     }
 
     for (int i = 0; i < size; ++i) {
@@ -37,7 +37,7 @@ void check_stack_array_log() {
 void check_std_array() {
     std::array<size_t, size> arr{};
     for (int i = 0; i < size; ++i) {
-        runtime_index_wrapper(arr, i) = (size_t) i;
+        runtime_index_wrapper(arr, i, i);
     }
     for (int i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr, i), (size_t) i);
@@ -47,7 +47,7 @@ void check_std_array() {
 void check_std_array_log() {
     std::array<size_t, size> arr{};
     for (int i = 0; i < size; ++i) {
-        runtime_index_wrapper_log(arr, i) = (size_t) i;
+        runtime_index_wrapper(arr, i, i);
     }
     for (int i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper_log(arr, i), (size_t) i);
@@ -60,7 +60,7 @@ void check_std_array_log() {
 void check_std_vector() {
     std::vector<size_t> arr(size, 0);
     for (int i = 0; i < size; ++i) {
-        runtime_index_wrapper<size>(arr, i) = (size_t) i;
+        runtime_index_wrapper<size>(arr, i, i);
     }
     for (int i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper<size>(arr, i), (size_t) i);
@@ -70,7 +70,7 @@ void check_std_vector() {
 void check_std_vector_log() {
     std::vector<size_t> arr(size, 0);
     for (int i = 0; i < size; ++i) {
-        runtime_index_wrapper_log<size>(arr, i) = (size_t) i;
+        runtime_index_wrapper<size>(arr, i, i);
     }
     for (int i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper_log<size>(arr, i), (size_t) i);
@@ -81,7 +81,7 @@ void check_std_vector_log() {
 void check_sycl_vector() {
     sycl::int16 arr;
     for (int i = 0; i < 16; ++i) {
-        runtime_index_wrapper(arr, i) = i;
+        runtime_index_wrapper(arr, i, i);
     }
     for (int i = 0; i < 16; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr, i), i);
@@ -96,7 +96,7 @@ void check_sycl_id() {
     sycl::id<3> id{1, 2, 3};
     ASSERT_EQ(runtime_index_wrapper(id, 0), 1);
     ASSERT_EQ(runtime_index_wrapper(id, 1), 2);
-    runtime_index_wrapper(id, 2) = 0;
+    runtime_index_wrapper(id, 2, 0);
     ASSERT_EQ(runtime_index_wrapper(id, 2), 0);
 }
 
@@ -104,7 +104,7 @@ void check_sycl_id_log() {
     sycl::id<3> id{1, 2, 3};
     ASSERT_EQ(runtime_index_wrapper_log(id, 0), 1);
     ASSERT_EQ(runtime_index_wrapper_log(id, 1), 2);
-    runtime_index_wrapper_log(id, 2) = 0;
+    runtime_index_wrapper(id, 2, 0);
     ASSERT_EQ(runtime_index_wrapper_log(id, 2), 0);
 }
 
