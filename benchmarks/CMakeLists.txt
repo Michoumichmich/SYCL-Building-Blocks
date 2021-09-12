@@ -5,8 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 include_directories(../include)
 
 # If you're using the DPCPP compiler, these flags will be used. Set here the devices you want to target
-set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64,nvptx64-nvidia-cuda -Xcuda-ptxas -v -DSYCL_USE_NATIVE_FP_ATOMICS -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fsycl-id-queries-fit-in-int -Xsycl-target-backend=nvptx64-nvidia-cuda --cuda-gpu-arch=sm_75)
-#set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice)
+set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xcuda-ptxas -v -DSYCL_USE_NATIVE_FP_ATOMICS -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fsycl-id-queries-fit-in-int -Xsycl-target-backend=nvptx64-nvidia-cuda --cuda-gpu-arch=sm_75)
+#set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64,nvptx64-nvidia-cuda)
 include(../cmake/FindSYCL.cmake)
 
 # Default C++ Flags for warnings and optimisation

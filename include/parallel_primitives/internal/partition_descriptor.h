@@ -1,6 +1,5 @@
 #pragma once
 
-#include <sycl/sycl.hpp>
 #include "../../intrinsics.hpp"
 #include "common.h"
 
@@ -36,13 +35,7 @@ namespace parallel_primitives::decoupled_lookback_internal {
     class partition_descriptor_impl<T, func, true> {
     private:
 
-        using storage_type = decltype([]() {
-            if constexpr(sizeof(data<T, func>) <= 4) {
-                return uint32_t{};
-            } else {
-                return uint64_t{};
-            }
-        }());
+        using storage_type = typename sycl::ext::smallest_storage_t<data<T, func>>::type;
 
         union atomic_union_storage {
             storage_type storage;
@@ -72,6 +65,7 @@ namespace parallel_primitives::decoupled_lookback_internal {
             const func op{};
             for (auto partition = partition_id; partition_id > 0;) {
                 partition--;
+                //  sycl::ext::prefetch_constant(ptr_base + partition - 1);
                 atomic_ref_t ref(ptr_base[partition].packed.storage);
                 atomic_union_storage data{.storage = ref.load()};
 

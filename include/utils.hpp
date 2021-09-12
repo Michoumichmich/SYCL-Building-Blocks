@@ -29,24 +29,28 @@ namespace sycl::ext {
 
 
     template<typename T>
+    auto constexpr get_type() {
+        if constexpr(std::is_same_v<T, bool>) {
+            return bool{};
+        } else if constexpr (sizeof(T) == 0) {
+            fail_to_compile<T>();
+        } else if constexpr(sizeof(T) == 1) {
+            return uint8_t{};
+        } else if constexpr(sizeof(T) == 2) {
+            return uint16_t{};
+        } else if constexpr(sizeof(T) <= 4) {
+            return uint32_t{};
+        } else if constexpr(sizeof(T) <= 8) {
+            return uint64_t{};
+        } else {
+            fail_to_compile<T>();
+        }
+    }
+
+
+    template<typename T>
     struct smallest_storage_t {
-        using type = decltype([]() {
-            if constexpr(std::is_same_v<T, bool>) {
-                return bool{};
-            } else if constexpr (sizeof(T) == 0) {
-                fail_to_compile<T>();
-            } else if constexpr(sizeof(T) == 1) {
-                return uint8_t{};
-            } else if constexpr(sizeof(T) == 2) {
-                return uint16_t{};
-            } else if constexpr(sizeof(T) <= 4) {
-                return uint32_t{};
-            } else if constexpr(sizeof(T) <= 8) {
-                return uint64_t{};
-            } else {
-                fail_to_compile<T>();
-            }
-        }());
+        using type = decltype(get_type<T>());
     };
 
     template<typename T>

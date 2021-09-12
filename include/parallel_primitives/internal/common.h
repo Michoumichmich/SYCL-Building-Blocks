@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "../../utils.h"
+#include "../../utils.hpp"
 
 namespace parallel_primitives {
     using index_t = uint64_t;
@@ -32,6 +32,7 @@ namespace parallel_primitives {
 
 namespace parallel_primitives::internal {
 
+    
     template<typename T>
     constexpr bool is_sycl_arithmetic() {
         return std::is_arithmetic_v<T> || std::is_same_v<T, sycl::half>;
