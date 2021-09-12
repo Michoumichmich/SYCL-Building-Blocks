@@ -28,8 +28,28 @@ stack_array/268435456        2216 ms  2214 ms   1 items_per_second=12.1234G/s
 
 ```C++
 int array[10] = {0};
-runtime_index_wrapper(array, i % 10, j) // performs array[i%10]=j
+runtime_index_wrapper(array, i % 10, j) // performs array[i%10]=j and returns J
 assert(j == runtime_index_wrapper(array, i % 10)); // reads the value
+```
+
+#### Class interface
+
+```C++
+std::array<size_t, 10> vec = {};
+sycl::ext::runtime_wrapper acc(vec);
+
+acc.write(i % 10, j) // performs array[i%10]=j and returns J
+assert(j == acc[i % 10]); // reads the value
+```
+
+For types that have a subscript operator, but where the implementation is not able to extract the maximum accessed index, the user must provide the size when using read/write.
+
+```
+std::vector<int> vec ... ;
+sycl::ext::runtime_wrapper acc(vec);
+
+acc.write<vec_size>(i, val) // performs array[i%10]=j and returns J
+assert(j == acc.read<vec_size>(i % 10)); // reads the value
 ```
 
 ## Prefix Scan

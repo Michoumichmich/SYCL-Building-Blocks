@@ -1,3 +1,25 @@
+/**
+    Copyright 2021 Codeplay Software Ltd.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use these files except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    For your convenience, a copy of the License has been included in this
+    repository.
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+    @author Michel Migdal.
+ */
+
+
 #pragma once
 
 #include <sycl/sycl.hpp>
@@ -60,7 +82,7 @@ namespace sycl::ext {
 #define RUNTIME_IDX_STORE_SWITCH_15_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_14_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(14u, arr, val)
 #define RUNTIME_IDX_STORE_SWITCH_16_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_15_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(15u, arr, val)
 
-#ifdef USE_SWITCH
+#ifdef RUNTIME_IDX_STORE_USE_SWITCH
 #define GENERATE_IDX_STORE(ID, arr, idx, val)            \
 switch(idx){                                            \
     RUNTIME_IDX_STORE_SWITCH_##ID##_CASES(arr, val)     \
@@ -192,10 +214,11 @@ switch(idx){                                            \
  * Subscript operators
  */
     template<int idx_max, typename func, typename T = std::remove_reference_t<subscript_t<func, int>>, typename U>
-    static inline constexpr void runtime_index_wrapper(func &f, const uint &i, const U val) {
+    static inline constexpr U runtime_index_wrapper(func &f, const uint &i, const U &val) {
         static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
         static_assert(!std::is_array_v<func>, "Not for arrays");
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, func, idx_max>(f, i, (T) val);
+        return val;
     }
 
     template<int idx_max, typename func, typename T = std::remove_reference_t<subscript_t<func, int>>>
@@ -218,8 +241,9 @@ switch(idx){                                            \
  * C-Style arrays
  */
     template<typename T, int N, typename U>
-    static inline constexpr void runtime_index_wrapper(T (&arr)[N], const uint i, const U &val) {
+    static inline constexpr U runtime_index_wrapper(T (&arr)[N], const uint i, const U &val) {
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, T (&)[N], N>(arr, i, (std::remove_reference_t<T>) val);
+        return val;
     }
 
     template<typename T, int N>
@@ -237,8 +261,9 @@ switch(idx){                                            \
  * STD::ARRAY
  */
     template<typename T, size_t N, typename U>
-    static inline constexpr void runtime_index_wrapper(std::array<T, N> &array, const uint i, const U &val) {
+    static inline constexpr U runtime_index_wrapper(std::array<T, N> &array, const uint &i, const U &val) {
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, std::array<T, N>, N>(array, i, (T) val);
+        return val;
     }
 
     template<typename T, size_t N>
@@ -257,8 +282,9 @@ switch(idx){                                            \
  * SYCL VEC
  */
     template<template<typename, int> class vec_t, typename T, int N, typename U>
-    static inline constexpr void runtime_index_wrapper(vec_t<T, N> &vec, const uint &i, const U &val) {
+    static inline constexpr U runtime_index_wrapper(vec_t<T, N> &vec, const uint &i, const U &val) {
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, vec_t<T, N>, N>(vec, i, (T) val);
+        return val;
     }
 
     template<template<typename, int> class vec_t, typename T, int N>
@@ -275,8 +301,9 @@ switch(idx){                                            \
  * SYCL ID
  */
     template<template<int> class vec_t, int N, typename U>
-    static inline constexpr void runtime_index_wrapper(vec_t<N> &vec, const uint &i, const U &val) {
+    static inline constexpr U runtime_index_wrapper(vec_t<N> &vec, const uint &i, const U &val) {
         runtime_idx_detail::runtime_index_wrapper_internal_store<size_t, vec_t<N>, N>(vec, i, (uint) val);
+        return val;
     }
 
     template<template<int> class vec_t, int N>
@@ -289,5 +316,85 @@ switch(idx){                                            \
     [[nodiscard]]  static inline constexpr size_t runtime_index_wrapper_log(const vec_t<N> &vec, const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_log_internal_read_copy<size_t, vec_t<N>, N>(vec, i);
     }
+
+
+    /**
+     * Constructs an accessor that can be used with dynnamic indices at runtime
+     */
+    template<class array_t>
+    class runtime_wrapper {
+    private:
+        array_t &array_ref_;
+    public:
+        [[nodiscard]] explicit runtime_wrapper(array_t &arr) : array_ref_(arr) {}
+
+        /**
+         * Reading method for arrays/types with deduced size
+         * @param i Index where to read
+         * @return Value read
+         */
+        [[nodiscard]]  auto operator[](uint i) {
+            return runtime_index_wrapper(array_ref_, i);
+        }
+
+        /**
+         * Reading method for arrays/types with deduced size
+         * @param i Index where to read
+         * @return Value read
+         */
+        [[nodiscard]] auto read(uint i) {
+            return runtime_index_wrapper(array_ref_, i);
+        }
+
+        /**
+         * Writing method for arrays/types with deduced size
+         * @tparam U Type of the value to write
+         * @param i Index where to write
+         * @param val Value to write
+         * @return Value we have written
+         */
+        template<typename U>
+        U write(uint i, const U &val) {
+            return runtime_index_wrapper(array_ref_, i, val);
+        }
+
+
+        /**
+         * Reading method for types with subscript that we don't know the maximum length
+         * @tparam N Maximum value used of the index i
+         * @param i Index where to read
+         * @return Value read
+         */
+        template<int N>
+        [[nodiscard]] auto operator[](uint i) {
+            return runtime_index_wrapper<N>(array_ref_, i);
+        }
+
+
+        /**
+         * Reading method for types with subscript that we don't know the maximum length
+         * @tparam N Maximum value used of the index i
+         * @param i Index where to read
+         * @return Value read
+         */
+        template<int N>
+        [[nodiscard]] auto read(uint i) {
+            return runtime_index_wrapper<N>(array_ref_, i);
+        }
+
+        /**
+         * Writing method for types with subscript that we don't know the maximum length
+         * @tparam N Maximum value used of the index i
+         * @tparam U Type of the value to store
+         * @param i Index where to write
+         * @param val Value to write
+         * @return Value we have written
+         */
+        template<int N, typename U>
+        U write(uint i, const U &val) {
+            return runtime_index_wrapper<N>(array_ref_, i, val);
+        }
+    };
+
 
 }

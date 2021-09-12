@@ -12,6 +12,7 @@ struct my_struct {
 
 struct local_mem_benchmark_array;
 struct local_mem_benchmark_array_register;
+struct local_mem_benchmark_array_register_with_class;
 
 size_t benchmark_array_regular(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
@@ -49,6 +50,30 @@ size_t benchmark_array_register(size_t size) {
     return size * 100;
 }
 
+size_t benchmark_array_register_with_class(size_t size) {
+    sycl::queue q{sycl::gpu_selector{}};
+    volatile uint *ptr = sycl::malloc_device<uint>(1, q);
+    q.parallel_for<local_mem_benchmark_array_register_with_class>(size, [=](sycl::id<1> id) {
+        my_struct data{};
+        data.array[0] = *ptr;
+        uint init = *ptr;
+
+        sycl::ext::runtime_wrapper array(data.array);
+        sycl::ext::runtime_wrapper some_coordinates(data.some_coordinates);
+        sycl::ext::runtime_wrapper more(data.more);
+        sycl::ext::runtime_wrapper even_more(data.even_more);
+
+        for (int c = 0; c < 100; ++c) {
+            data.some_coordinates[0] = array[(c + data.array[0]) % sizeof(data.array)];
+            data.even_more[1] = some_coordinates.read(c % sizeof(data.some_coordinates));
+            array.write((init + c) % sizeof(data.array), c * init);
+            more.write((c + init) % sizeof(data.more), data.array[1]);
+        }
+        *ptr = even_more.read(*ptr % sizeof(data.even_more));
+    }).wait();
+    return size * 100;
+}
+
 void stack_array(benchmark::State &state) {
     auto size = static_cast<size_t>(state.range(0));
     size_t processed_items = 0;
@@ -67,8 +92,19 @@ void registerized_array(benchmark::State &state) {
     state.SetItemsProcessed(static_cast<int64_t>(processed_items));
 }
 
-BENCHMARK(registerized_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+void registerized_array_with_class(benchmark::State &state) {
+    auto size = static_cast<size_t>(state.range(0));
+    size_t processed_items = 0;
+    for (auto _: state) {
+        processed_items += benchmark_array_register_with_class(size);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(processed_items));
+}
+
 BENCHMARK(stack_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+BENCHMARK(registerized_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+BENCHMARK(registerized_array_with_class)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+
 
 
 BENCHMARK_MAIN();

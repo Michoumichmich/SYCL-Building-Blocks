@@ -139,6 +139,30 @@ void check_sycl_vector_log() {
     }
 }
 
+void check_sycl_vector_class() {
+    sycl::uint16 arr;
+    sycl::ext::runtime_wrapper acc(arr);
+
+    for (uint i = 0; i < 16; ++i) {
+        acc.write(i, i);
+    }
+    for (uint i = 0; i < 16; ++i) {
+        ASSERT_EQ(acc.read(i), i);
+    }
+}
+
+void check_std_vector_class() {
+    std::vector<size_t> arr(size, 0);
+    sycl::ext::runtime_wrapper acc(arr);
+    for (uint i = 0; i < size; ++i) {
+        acc.write<size>(i, i);
+    }
+    for (uint i = 0; i < size; ++i) {
+        ASSERT_EQ(acc.read<size>(i), i);
+    }
+
+}
+
 
 /**
  * Size cannot be deduced
@@ -180,8 +204,16 @@ TEST(runtime_index_wrapper, std_vector) {
     check_std_vector();
 }
 
+TEST(runtime_wrapper_class, std_vector) {
+    check_std_vector_class();
+}
+
 TEST(runtime_index_wrapper, sycl_vector) {
     check_sycl_vector();
+}
+
+TEST(runtime_wrapper_class, sycl_vector) {
+    check_sycl_vector_class();
 }
 
 TEST(runtime_index_wrapper_log, sycl_vector) {
