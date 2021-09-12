@@ -76,7 +76,7 @@ switch(idx){                                            \
 
 
         template<typename T, typename array_t, int N, int idx_max = N - 1>
-        static inline constexpr void runtime_index_wrapper_internal_store(array_t &arr, const uint &i, const T val) {
+        static inline constexpr void runtime_index_wrapper_internal_store(array_t &arr, const uint &i, const T &val) {
             static_assert(idx_max >= 0 && idx_max < N);
             if constexpr (idx_max == 0 || N == 1) {
                 arr[0] = val;
@@ -108,7 +108,7 @@ switch(idx){                                            \
                 GENERATE_IDX_STORE(14, arr, i, val)
             } else if constexpr (N == 15) {
                 GENERATE_IDX_STORE(15, arr, i, val)
-            } else if constexpr (N == 16) {
+            } else if constexpr (N == 16 || idx_max == 15) { // End of recursion if we started with N>16
                 GENERATE_IDX_STORE(16, arr, i, val)
             } else {
                 if (i != idx_max) {
@@ -122,7 +122,7 @@ switch(idx){                                            \
 #undef GENERATE_IDX_STORE
 
         template<typename T, typename array_t, int N, int idx_max = N - 1>
-        static inline constexpr const T &runtime_index_wrapper_internal_read_ref(const array_t &arr, const int &i) {
+        [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_internal_read_ref(const array_t &arr, const uint &i) {
             static_assert(idx_max >= 0 && idx_max < N);
             if constexpr (idx_max == 0 || N == 1) {
                 return arr[0];
@@ -136,7 +136,7 @@ switch(idx){                                            \
         }
 
         template<typename T, typename array_t, int N, int idx_max = N - 1>
-        static inline constexpr T runtime_index_wrapper_internal_read_copy(const array_t &arr, const int &i) {
+        [[nodiscard]] static inline constexpr T runtime_index_wrapper_internal_read_copy(const array_t &arr, const uint &i) {
             static_assert(idx_max >= 0 && idx_max < N);
             if constexpr (idx_max == 0 || N == 1) {
                 return arr[0];
@@ -150,7 +150,7 @@ switch(idx){                                            \
         }
 
         template<typename T, typename array_t, size_t N, int end = N - 1, int start = 0>
-        static inline constexpr const T &runtime_index_wrapper_log_internal_read_ref(const array_t &array, const int &i) {
+        [[nodiscard]]  static inline constexpr const T &runtime_index_wrapper_log_internal_read_ref(const array_t &array, const uint &i) {
             static_assert(start <= end);
             if constexpr (end == start) {
                 return array[end];
@@ -168,7 +168,7 @@ switch(idx){                                            \
         }
 
         template<typename T, typename array_t, size_t N, int end = N - 1, int start = 0>
-        static inline constexpr T runtime_index_wrapper_log_internal_read_copy(const array_t &array, const int &i) {
+        [[nodiscard]]  static inline constexpr T runtime_index_wrapper_log_internal_read_copy(const array_t &array, const uint &i) {
             static_assert(start <= end);
             if constexpr (end == start) {
                 return array[end];
@@ -192,14 +192,14 @@ switch(idx){                                            \
  * Subscript operators
  */
     template<int idx_max, typename func, typename T = std::remove_reference_t<subscript_t<func, int>>, typename U>
-    static inline constexpr void runtime_index_wrapper(func &f, const int i, const U val) {
+    static inline constexpr void runtime_index_wrapper(func &f, const uint &i, const U val) {
         static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
         static_assert(!std::is_array_v<func>, "Not for arrays");
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, func, idx_max>(f, i, (T) val);
     }
 
     template<int idx_max, typename func, typename T = std::remove_reference_t<subscript_t<func, int>>>
-    static inline constexpr T runtime_index_wrapper(const func &f, const int &i) {
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper(const func &f, const uint &i) {
         static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
         static_assert(!std::is_array_v<func>, "Not for arrays");
         return runtime_idx_detail::runtime_index_wrapper_internal_read_copy<T, func, idx_max>(f, i);
@@ -207,7 +207,7 @@ switch(idx){                                            \
 
 
     template<int idx_max, typename func, typename T = std::remove_reference_t<subscript_t<func, int>>>
-    static inline constexpr T runtime_index_wrapper_log(const func &f, const int &i) {
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper_log(const func &f, const uint &i) {
         static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
         static_assert(!std::is_array_v<func>, "Not for arrays");
         return runtime_idx_detail::runtime_index_wrapper_log_internal_read_copy<T, func, idx_max>(f, i);
@@ -218,17 +218,17 @@ switch(idx){                                            \
  * C-Style arrays
  */
     template<typename T, int N, typename U>
-    static inline constexpr void runtime_index_wrapper(T (&arr)[N], const int i, const U &val) {
+    static inline constexpr void runtime_index_wrapper(T (&arr)[N], const uint i, const U &val) {
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, T (&)[N], N>(arr, i, (std::remove_reference_t<T>) val);
     }
 
     template<typename T, int N>
-    static inline constexpr const T &runtime_index_wrapper(T const (&arr)[N], const int &i) {
+    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper(const T  (&arr)[N], const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_internal_read_ref<T, const T (&)[N], N>(arr, i);
     }
 
     template<typename T, int N>
-    static inline constexpr const T &runtime_index_wrapper_log(const T (&arr)[N], const int &i) {
+    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_log(const T (&arr)[N], const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_log_internal_read_ref<T, const T(&)[N], N>(arr, i);
     }
 
@@ -237,18 +237,18 @@ switch(idx){                                            \
  * STD::ARRAY
  */
     template<typename T, size_t N, typename U>
-    static inline constexpr void runtime_index_wrapper(std::array<T, N> &array, const int i, const U &val) {
+    static inline constexpr void runtime_index_wrapper(std::array<T, N> &array, const uint i, const U &val) {
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, std::array<T, N>, N>(array, i, (T) val);
     }
 
     template<typename T, size_t N>
-    static inline constexpr const T &runtime_index_wrapper(const std::array<T, N> &array, const int &i) {
+    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper(const std::array<T, N> &array, const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_internal_read_ref<T, std::array<T, N>, N>(array, i);
     }
 
 
     template<typename T, size_t N>
-    static inline constexpr const T &runtime_index_wrapper_log(const std::array<T, N> &array, const int &i) {
+    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_log(const std::array<T, N> &array, const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_log_internal_read_ref<T, std::array<T, N>, N>(array, i);
     }
 
@@ -257,17 +257,17 @@ switch(idx){                                            \
  * SYCL VEC
  */
     template<template<typename, int> class vec_t, typename T, int N, typename U>
-    static inline constexpr void runtime_index_wrapper(vec_t<T, N> &vec, const int i, const U &val) {
+    static inline constexpr void runtime_index_wrapper(vec_t<T, N> &vec, const uint &i, const U &val) {
         runtime_idx_detail::runtime_index_wrapper_internal_store<T, vec_t<T, N>, N>(vec, i, (T) val);
     }
 
     template<template<typename, int> class vec_t, typename T, int N>
-    static inline constexpr const T &runtime_index_wrapper(const vec_t<T, N> &vec, const int i) {
+    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper(const vec_t<T, N> &vec, const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_internal_read_ref<T, vec_t<T, N>, N>(vec, i);
     }
 
     template<template<typename, int> class vec_t, typename T, int N>
-    static inline constexpr const T &runtime_index_wrapper_log(const vec_t<T, N> &vec, const int i) {
+    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_log(const vec_t<T, N> &vec, const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_log_internal_read_ref<T, vec_t<T, N>, N>(vec, i);
     }
 
@@ -275,18 +275,18 @@ switch(idx){                                            \
  * SYCL ID
  */
     template<template<int> class vec_t, int N, typename U>
-    static inline constexpr void runtime_index_wrapper(vec_t<N> &vec, const int i, const U &val) {
-        runtime_idx_detail::runtime_index_wrapper_internal_store<size_t, vec_t<N>, N>(vec, i, (size_t) val);
+    static inline constexpr void runtime_index_wrapper(vec_t<N> &vec, const uint &i, const U &val) {
+        runtime_idx_detail::runtime_index_wrapper_internal_store<size_t, vec_t<N>, N>(vec, i, (uint) val);
     }
 
     template<template<int> class vec_t, int N>
-    static inline constexpr size_t runtime_index_wrapper(const vec_t<N> &vec, const int &i) {
+    [[nodiscard]] static inline constexpr size_t runtime_index_wrapper(const vec_t<N> &vec, const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_internal_read_copy<size_t, vec_t<N>, N>(vec, i);
     }
 
 
     template<template<int> class vec_t, int N>
-    static inline constexpr size_t runtime_index_wrapper_log(const vec_t<N> &vec, const int &i) {
+    [[nodiscard]]  static inline constexpr size_t runtime_index_wrapper_log(const vec_t<N> &vec, const uint &i) {
         return runtime_idx_detail::runtime_index_wrapper_log_internal_read_copy<size_t, vec_t<N>, N>(vec, i);
     }
 

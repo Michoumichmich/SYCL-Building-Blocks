@@ -4,30 +4,40 @@
 
 using sycl::ext::runtime_index_wrapper;
 using sycl::ext::runtime_index_wrapper_log;
-constexpr int size = 20;
+constexpr uint size = 30;
 
 /**
  * Size deduced
  */
 void check_stack_array() {
     size_t arr[size];
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         runtime_index_wrapper(arr, i, i);
     }
 
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr, i), (size_t) i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper<size>(arr2, i), i);
     }
 }
 
 void check_stack_array_log() {
     size_t arr[size];
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         runtime_index_wrapper(arr, i, i);
     }
 
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper_log(arr, i), (size_t) i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper<size>(arr2, i), i);
     }
 }
 
@@ -36,21 +46,31 @@ void check_stack_array_log() {
  */
 void check_std_array() {
     std::array<size_t, size> arr{};
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         runtime_index_wrapper(arr, i, i);
     }
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr, i), (size_t) i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper<size>(arr2, i), i);
     }
 }
 
 void check_std_array_log() {
     std::array<size_t, size> arr{};
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         runtime_index_wrapper(arr, i, i);
     }
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper_log(arr, i), (size_t) i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper<size>(arr2, i), i);
     }
 }
 
@@ -59,32 +79,63 @@ void check_std_array_log() {
  */
 void check_std_vector() {
     std::vector<size_t> arr(size, 0);
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         runtime_index_wrapper<size>(arr, i, i);
     }
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper<size>(arr, i), (size_t) i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper<size>(arr2, i), i);
     }
 }
 
 void check_std_vector_log() {
     std::vector<size_t> arr(size, 0);
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         runtime_index_wrapper<size>(arr, i, i);
     }
-    for (int i = 0; i < size; ++i) {
+    for (uint i = 0; i < size; ++i) {
         ASSERT_EQ(runtime_index_wrapper_log<size>(arr, i), (size_t) i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < size; ++i) {
+        ASSERT_EQ(runtime_index_wrapper<size>(arr2, i), i);
     }
 }
 
 
 void check_sycl_vector() {
-    sycl::int16 arr;
-    for (int i = 0; i < 16; ++i) {
+    sycl::uint16 arr;
+    for (uint i = 0; i < 16; ++i) {
         runtime_index_wrapper(arr, i, i);
     }
-    for (int i = 0; i < 16; ++i) {
+    for (uint i = 0; i < 16; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr, i), i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < 16; ++i) {
+        ASSERT_EQ(runtime_index_wrapper(arr2, i), i);
+    }
+
+}
+
+void check_sycl_vector_log() {
+    sycl::uint16 arr;
+    for (uint i = 0; i < 16; ++i) {
+        runtime_index_wrapper(arr, i, i);
+    }
+    for (uint i = 0; i < 16; ++i) {
+        ASSERT_EQ(runtime_index_wrapper_log(arr, i), i);
+    }
+
+    const auto arr2 = arr;
+    for (uint i = 0; i < 16; ++i) {
+        ASSERT_EQ(runtime_index_wrapper(arr2, i), i);
     }
 }
 
@@ -131,6 +182,10 @@ TEST(runtime_index_wrapper, std_vector) {
 
 TEST(runtime_index_wrapper, sycl_vector) {
     check_sycl_vector();
+}
+
+TEST(runtime_index_wrapper_log, sycl_vector) {
+    check_sycl_vector_log();
 }
 
 TEST(runtime_index_wrapper_log, std_vector) {

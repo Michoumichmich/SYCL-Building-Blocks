@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 include_directories(../include)
 
 # If you're using the DPCPP compiler, these flags will be used. Set here the devices you want to target
-set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda--sm_75 -DSYCL_USE_NATIVE_FP_ATOMICS -fcuda-flush-denormals-to-zero -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fcuda-approx-transcendentals -fsycl-id-queries-fit-in-int)
+set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda--sm_75 -Xcuda-ptxas -v -DSYCL_USE_NATIVE_FP_ATOMICS -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fsycl-id-queries-fit-in-int)
 #set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice)
 include(../cmake/FindSYCL.cmake)
 
@@ -16,8 +16,8 @@ set(DISABLED_WARNINGS "-Wno-c++20-extensions -Wno-inline-namespace-reopened-noni
 set(OPT_FLAGS "-march=native -mtune=native -Ofast -fomit-frame-pointer")
 
 # Adding the flags to the targets
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPT_FLAGS} ${DISABLED_WARNINGS} -v")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${WARNING_FLAGS} ${EXTRA_W_FLAGS} ${DISABLED_WARNINGS} -v")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPT_FLAGS} ${DISABLED_WARNINGS}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${WARNING_FLAGS} ${EXTRA_W_FLAGS} ${DISABLED_WARNINGS}")
 
 enable_testing()
 

@@ -4,8 +4,9 @@
 using sycl::ext::runtime_index_wrapper;
 struct my_struct {
     uint i = 1, j = 2;
-    uint array[5] = {0};
-    std::array<size_t, 3> some_coordinates{0, 0, 0}, more{1, 0, 2}, even_more{0, 3, 1};
+    uint array[2] = {0};
+    std::array<size_t, 2> some_coordinates{0, 0}, more{1, 0};
+    sycl::ulong2 even_more{0, 3};
 };
 
 
@@ -48,7 +49,7 @@ size_t benchmark_array_register(size_t size) {
     return size * 100;
 }
 
-void stack_array_benchmark(benchmark::State &state) {
+void stack_array(benchmark::State &state) {
     auto size = static_cast<size_t>(state.range(0));
     size_t processed_items = 0;
     for (auto _: state) {
@@ -57,7 +58,7 @@ void stack_array_benchmark(benchmark::State &state) {
     state.SetItemsProcessed(static_cast<int64_t>(processed_items));
 }
 
-void register_array_benchmark(benchmark::State &state) {
+void registerized_array(benchmark::State &state) {
     auto size = static_cast<size_t>(state.range(0));
     size_t processed_items = 0;
     for (auto _: state) {
@@ -66,8 +67,8 @@ void register_array_benchmark(benchmark::State &state) {
     state.SetItemsProcessed(static_cast<int64_t>(processed_items));
 }
 
-BENCHMARK(register_array_benchmark)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
-BENCHMARK(stack_array_benchmark)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+BENCHMARK(registerized_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+BENCHMARK(stack_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
 
 
 BENCHMARK_MAIN();
