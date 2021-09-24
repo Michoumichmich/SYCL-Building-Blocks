@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.0)
 project(SYCL_Intrinsics LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -55,5 +55,9 @@ add_sycl_to_target(TARGET benchmark_registers SOURCES benchmark_array_register.c
 add_executable(benchmark_byte_array benchmark_byte_array.cpp)
 target_link_libraries(benchmark_byte_array PRIVATE benchmark::benchmark)
 add_sycl_to_target(TARGET benchmark_byte_array SOURCES benchmark_byte_array.cpp)
+
+add_executable(benchmark_bit_array benchmark_bit_array.cpp)
+target_link_libraries(benchmark_bit_array PRIVATE benchmark::benchmark)
+add_sycl_to_target(TARGET benchmark_bit_array SOURCES benchmark_bit_array.cpp)
 
 

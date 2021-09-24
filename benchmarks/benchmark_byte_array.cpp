@@ -5,11 +5,11 @@
 size_t benchmark_runtime_byte_array(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint init = 1022;
-    constexpr int array_size = 12;
+    constexpr int array_size = 8;
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_byte_array_kernel>(size, [=](sycl::id<1> id) {
+    q.parallel_for<class runtime_byte_array_kernel_optimised>(size, [=](sycl::id<1> id) {
         runtime_byte_array<array_size> arr{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
-        for (int c = 0; c < 100; ++c) {
+        for (int c = (int) id; c < 100 + id; ++c) {
             arr.write(0, arr[(c + arr[0]) % array_size]);
             arr.write(1, arr[c % array_size]);
             arr.write((init + c) % array_size, c * init);
@@ -23,12 +23,12 @@ size_t benchmark_runtime_byte_array(size_t size) {
 size_t benchmark_runtime_byte_array_non_specialised(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint init = 1022;
-    constexpr int array_size = 12;
+    constexpr int array_size = 8;
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
     q.parallel_for<class runtime_byte_array_non_specialised_kernel>(size, [=](sycl::id<1> id) {
         std::array<uint8_t, array_size> arr_storage{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
         sycl::ext::runtime_wrapper arr(arr_storage);
-        for (int c = 0; c < 100; ++c) {
+        for (int c = (int) id; c < 100 + id; ++c) {
             arr.write(0, arr[(c + arr[0]) % array_size]);
             arr.write(1, arr[c % array_size]);
             arr.write((init + c) % array_size, c * init);
@@ -42,11 +42,11 @@ size_t benchmark_runtime_byte_array_non_specialised(size_t size) {
 size_t benchmark_runtime_byte_array_stack(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint init = 1022;
-    constexpr int array_size = 12;
+    constexpr int array_size = 8;
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
     q.parallel_for<class runtime_byte_array_stack_kernel>(size, [=](sycl::id<1> id) {
         std::array<uint8_t, array_size> arr{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
-        for (int c = 0; c < 100; ++c) {
+        for (int c = (int) id; c < 100 + id; ++c) {
             arr[0] = arr[(c + arr[0]) % array_size];
             arr[1] = arr[c % array_size];
             arr[(init + c) % array_size] = c * init;

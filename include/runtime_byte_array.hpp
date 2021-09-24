@@ -17,8 +17,8 @@ public:
      * Connstructor that takes a list of bytes
      * @param init
      */
-    [[nodiscard]] constexpr runtime_byte_array(const std::initializer_list<uint8_t> &init) {
-        int idx = 0;
+    constexpr runtime_byte_array(const std::initializer_list<uint8_t> &init) {
+        uint idx = 0;
         for (auto b: init) {
             write(idx, b);
             ++idx;
@@ -51,7 +51,13 @@ public:
      * @return the byte written
      */
     constexpr uint8_t write(const uint &i, const uint8_t &write_byte) {
-        return sycl::ext::runtime_index_wrapper_store_byte(storage_array_, i / sizeof(storage_type), write_byte, i % sizeof(storage_type));
+        sycl::ext::runtime_index_wrapper_transform_ith(
+                storage_array_,
+                i / sizeof(storage_type), // Word index where the lambda will be called
+                [&](const storage_type &word) {
+                    return sycl::ext::set_byte(word, write_byte, i % sizeof(storage_type)); // Sets the byte in the word and returns it.
+                });
+        return write_byte;
     }
 
 private:

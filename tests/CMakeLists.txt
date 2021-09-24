@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.0)
 project(SYCL_Intrinsics LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 include_directories(../include)
 
 # If you're using the DPCPP compiler, these flags will be used. Set here the devices you want to target
-set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda--sm_75 -DSYCL_USE_NATIVE_FP_ATOMICS -fcuda-flush-denormals-to-zero -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fcuda-approx-transcendentals -fsycl-id-queries-fit-in-int -Xcuda-ptxas -v)
+set(DPCPP_FLAGS -fsycl -fsycl-targets=nvptx64-nvidia-cuda -DSYCL_USE_NATIVE_FP_ATOMICS -fcuda-flush-denormals-to-zero -ffast-math -fcuda-approx-transcendentals -ffp-contract=fast -fcuda-flush-denormals-to-zero -fcuda-approx-transcendentals -fsycl-id-queries-fit-in-int -Xcuda-ptxas -v)
 #set(DPCPP_FLAGS -fsycl -fsycl-targets=spir64_x86_64)
 include(../cmake/FindSYCL.cmake)
 

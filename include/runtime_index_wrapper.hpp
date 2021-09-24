@@ -28,7 +28,7 @@
 #include <intrinsics.hpp>
 
 namespace sycl::ext {
-    namespace runtime_idx_detail {
+    namespace registerizer_internal {
         template<class...>
         struct voider {
             using type = void;
@@ -45,7 +45,7 @@ namespace sycl::ext {
         };
     }
     template<template<class...> class Z, class...Ts>
-    using can_apply = runtime_idx_detail::can_apply<Z, void, Ts...>;
+    using can_apply = registerizer_internal::can_apply<Z, void, Ts...>;
 
     template<class T, class Index>
     using subscript_t = decltype(std::declval<T>()[std::declval<Index>()]);
@@ -54,7 +54,7 @@ namespace sycl::ext {
     using has_subscript = can_apply<subscript_t, T, Index>;
 
 
-    namespace runtime_idx_detail {
+    namespace registerizer_internal {
 
 
 #ifdef RUNTIME_IDX_STORE_USE_SWITCH
@@ -99,7 +99,7 @@ switch(idx){                                            \
 
 
         template<typename T, typename array_t, int N, int idx_max = N - 1>
-        static inline constexpr void runtime_index_wrapper_internal_store(array_t &arr, const uint &i, const T &val) {
+        static inline constexpr void registerized_store(array_t &arr, const uint &i, const T &val) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
             if constexpr (idx_max == 0 || N == 1) {
                 arr[0] = val;
@@ -135,7 +135,7 @@ switch(idx){                                            \
                 GENERATE_IDX_STORE(16, arr, i, val)
             } else {
                 if (i != idx_max) {
-                    runtime_index_wrapper_internal_store<T, array_t, N, idx_max - 1>(arr, i, val);
+                    registerized_store<T, array_t, N, idx_max - 1>(arr, i, val);
                 } else {
                     arr[idx_max] = val;
                 }
@@ -144,78 +144,53 @@ switch(idx){                                            \
 
 #undef GENERATE_IDX_STORE
 
-
-        template<typename T, typename array_t, int N, int idx_max = N - 1>
-        static inline constexpr void runtime_index_wrapper_internal_store_byte(array_t &arr, const uint &word_idx, const uint8_t &byte_in, const uint &byte_idx) {
+        template<typename func, typename T, typename array_t, int N, int idx_max = N - 1>
+        static inline constexpr void registerized_const_forall(const array_t &arr, const func &&f) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
 #pragma unroll
             for (uint i = 0; i < N; ++i) {
-                arr[i] = (word_idx == i) ? set_byte(arr[i], byte_in, byte_idx) : arr[i];
-                //if (word_idx == i) set_byte_ref(arr[i], byte_in, byte_idx); else arr[i] = arr[i];
+                f(i, arr[i]);
+            }
+        }
+
+        template<typename func, typename T, typename array_t, int N, int idx_max = N - 1>
+        static inline constexpr void registerize_transform_ith(array_t &arr, const func &&f, const uint &idx) noexcept {
+            static_assert(idx_max >= 0 && idx_max < N);
+#pragma unroll
+            for (uint i = 0; i < N; ++i) {
+                arr[i] = (idx == i) ? f(arr[i]) : arr[i];
             }
         }
 
 
         template<typename T, typename array_t, int N, int idx_max = N - 1>
-        [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_internal_read_ref(const array_t &arr, const uint &i) {
+        [[nodiscard]] static inline constexpr T registerized_read(const array_t &arr, const uint &idx) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
             if constexpr (idx_max == 0 || N == 1) {
                 return arr[0];
             } else {
-                if (i == idx_max) {
+                if (idx == idx_max) {
                     return arr[idx_max];
                 } else {
-                    return runtime_index_wrapper_internal_read_ref<T, array_t, N, idx_max - 1>(arr, i);
-                }
-            }
-        }
-
-        template<typename T, typename array_t, int N, int idx_max = N - 1>
-        [[nodiscard]] static inline constexpr T runtime_index_wrapper_internal_read_copy(const array_t &arr, const uint &i) {
-            static_assert(idx_max >= 0 && idx_max < N);
-            if constexpr (idx_max == 0 || N == 1) {
-                return arr[0];
-            } else {
-                if (i == idx_max) {
-                    return arr[idx_max];
-                } else {
-                    return runtime_index_wrapper_internal_read_copy<T, array_t, N, idx_max - 1>(arr, i);
+                    return registerized_read<T, array_t, N, idx_max - 1>(arr, idx);
                 }
             }
         }
 
         template<typename T, typename array_t, size_t N, int end = N - 1, int start = 0>
-        [[nodiscard]]  static inline constexpr const T &runtime_index_wrapper_log_internal_read_ref(const array_t &array, const uint &i) {
+        [[nodiscard]] static inline constexpr T registerized_dicochotomic_read(const array_t &array, const uint &idx) noexcept {
             static_assert(start <= end);
             if constexpr (end == start) {
                 return array[end];
             } else {
                 constexpr int middle = (start + end) / 2;
                 static_assert(middle >= 0 && middle < N);
-                if (i == middle) {
+                if (idx == middle) {
                     return array[middle];
-                } else if (i > middle) {
-                    return runtime_index_wrapper_log_internal_read_ref<T, array_t, N, end, middle + 1>(array, i);
+                } else if (idx > middle) {
+                    return registerized_dicochotomic_read<T, array_t, N, end, middle + 1>(array, idx);
                 } else {
-                    return runtime_index_wrapper_log_internal_read_ref<T, array_t, N, end - 1, start>(array, i);
-                }
-            }
-        }
-
-        template<typename T, typename array_t, size_t N, int end = N - 1, int start = 0>
-        [[nodiscard]]  static inline constexpr T runtime_index_wrapper_log_internal_read_copy(const array_t &array, const uint &i) {
-            static_assert(start <= end);
-            if constexpr (end == start) {
-                return array[end];
-            } else {
-                constexpr int middle = (start + end) / 2;
-                static_assert(middle >= 0 && middle < N);
-                if (i == middle) {
-                    return array[middle];
-                } else if (i > middle) {
-                    return runtime_index_wrapper_log_internal_read_copy<T, array_t, N, end, middle + 1>(array, i);
-                } else {
-                    return runtime_index_wrapper_log_internal_read_copy<T, array_t, N, end - 1, start>(array, i);
+                    return registerized_dicochotomic_read<T, array_t, N, end - 1, start>(array, idx);
                 }
             }
         }
@@ -230,7 +205,7 @@ switch(idx){                                            \
     static inline constexpr U runtime_index_wrapper(func &f, const uint &i, const U &val) {
         static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
         static_assert(!std::is_array_v<func>, "Not for arrays");
-        runtime_idx_detail::runtime_index_wrapper_internal_store<T, func, idx_max>(f, i, (T) val);
+        registerizer_internal::registerized_store<T, func, idx_max>(f, i, (T) val);
         return val;
     }
 
@@ -238,7 +213,7 @@ switch(idx){                                            \
     [[nodiscard]] static inline constexpr T runtime_index_wrapper(const func &f, const uint &i) {
         static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
         static_assert(!std::is_array_v<func>, "Not for arrays");
-        return runtime_idx_detail::runtime_index_wrapper_internal_read_copy<T, func, idx_max>(f, i);
+        return registerizer_internal::registerized_read<T, func, idx_max>(f, i);
     }
 
 
@@ -246,7 +221,7 @@ switch(idx){                                            \
     [[nodiscard]] static inline constexpr T runtime_index_wrapper_log(const func &f, const uint &i) {
         static_assert(has_subscript<func, int>::value, "Must have an int subscript operator");
         static_assert(!std::is_array_v<func>, "Not for arrays");
-        return runtime_idx_detail::runtime_index_wrapper_log_internal_read_copy<T, func, idx_max>(f, i);
+        return registerizer_internal::registerized_dicochotomic_read<T, func, idx_max>(f, i);
     }
 
 
@@ -255,18 +230,18 @@ switch(idx){                                            \
  */
     template<typename T, int N, typename U>
     static inline constexpr U runtime_index_wrapper(T (&arr)[N], const uint i, const U &val) {
-        runtime_idx_detail::runtime_index_wrapper_internal_store<T, T (&)[N], N>(arr, i, (std::remove_reference_t<T>) val);
+        registerizer_internal::registerized_store<T, T (&)[N], N>(arr, i, (std::remove_reference_t<T>) val);
         return val;
     }
 
     template<typename T, int N>
-    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper(const T  (&arr)[N], const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_internal_read_ref<T, const T (&)[N], N>(arr, i);
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper(const T (&arr)[N], const uint &i) {
+        return registerizer_internal::registerized_read<T, const T (&)[N], N>(arr, i);
     }
 
     template<typename T, int N>
-    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_log(const T (&arr)[N], const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_log_internal_read_ref<T, const T(&)[N], N>(arr, i);
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper_log(const T (&arr)[N], const uint &i) {
+        return registerizer_internal::registerized_dicochotomic_read<T, const T(&)[N], N>(arr, i);
     }
 
 
@@ -275,26 +250,28 @@ switch(idx){                                            \
  */
     template<typename T, size_t N, typename U>
     static inline constexpr U runtime_index_wrapper(std::array<T, N> &array, const uint &i, const U &val) {
-        runtime_idx_detail::runtime_index_wrapper_internal_store<T, std::array<T, N>, N>(array, i, (T) val);
+        registerizer_internal::registerized_store<T, std::array<T, N>, N>(array, i, (T) val);
         return val;
     }
 
     template<typename T, size_t N>
-    static inline constexpr uint8_t runtime_index_wrapper_store_byte(std::array<T, N> &array, const uint &i, const uint8_t &val, const uint &byte_idx) {
-        runtime_idx_detail::runtime_index_wrapper_internal_store_byte<T, std::array<T, N>, N>(array, i, (T) val, byte_idx);
-        return val;
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper(const std::array<T, N> &array, const uint &i) {
+        return registerizer_internal::registerized_read<T, std::array<T, N>, N>(array, i);
     }
 
-
     template<typename T, size_t N>
-    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper(const std::array<T, N> &array, const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_internal_read_ref<T, std::array<T, N>, N>(array, i);
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper_log(const std::array<T, N> &array, const uint &i) {
+        return registerizer_internal::registerized_dicochotomic_read<T, std::array<T, N>, N>(array, i);
     }
 
+    template<typename func, typename T, size_t N>
+    static inline constexpr void runtime_index_wrapper_for_all(const std::array<T, N> &array, const func &&f) {
+        registerizer_internal::registerized_const_forall<func, T, std::array<T, N>, N>(array, std::forward<const func>(f));
+    }
 
-    template<typename T, size_t N>
-    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_log(const std::array<T, N> &array, const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_log_internal_read_ref<T, std::array<T, N>, N>(array, i);
+    template<typename func, typename T, size_t N>
+    static inline constexpr void runtime_index_wrapper_transform_ith(std::array<T, N> &array, const uint &idx, const func &&f) {
+        registerizer_internal::registerize_transform_ith<func, T, std::array<T, N>, N>(array, std::forward<const func>(f), idx);
     }
 
 
@@ -303,18 +280,18 @@ switch(idx){                                            \
  */
     template<template<typename, int> class vec_t, typename T, int N, typename U>
     static inline constexpr U runtime_index_wrapper(vec_t<T, N> &vec, const uint &i, const U &val) {
-        runtime_idx_detail::runtime_index_wrapper_internal_store<T, vec_t<T, N>, N>(vec, i, (T) val);
+        registerizer_internal::registerized_store<T, vec_t<T, N>, N>(vec, i, (T) val);
         return val;
     }
 
     template<template<typename, int> class vec_t, typename T, int N>
-    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper(const vec_t<T, N> &vec, const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_internal_read_ref<T, vec_t<T, N>, N>(vec, i);
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper(const vec_t<T, N> &vec, const uint &i) {
+        return registerizer_internal::registerized_read<T, vec_t<T, N>, N>(vec, i);
     }
 
     template<template<typename, int> class vec_t, typename T, int N>
-    [[nodiscard]] static inline constexpr const T &runtime_index_wrapper_log(const vec_t<T, N> &vec, const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_log_internal_read_ref<T, vec_t<T, N>, N>(vec, i);
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper_log(const vec_t<T, N> &vec, const uint &i) {
+        return registerizer_internal::registerized_dicochotomic_read<T, vec_t<T, N>, N>(vec, i);
     }
 
 /**
@@ -322,19 +299,19 @@ switch(idx){                                            \
  */
     template<template<int> class vec_t, int N, typename U>
     static inline constexpr U runtime_index_wrapper(vec_t<N> &vec, const uint &i, const U &val) {
-        runtime_idx_detail::runtime_index_wrapper_internal_store<size_t, vec_t<N>, N>(vec, i, (uint) val);
+        registerizer_internal::registerized_store<size_t, vec_t<N>, N>(vec, i, (uint) val);
         return val;
     }
 
     template<template<int> class vec_t, int N>
     [[nodiscard]] static inline constexpr size_t runtime_index_wrapper(const vec_t<N> &vec, const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_internal_read_copy<size_t, vec_t<N>, N>(vec, i);
+        return registerizer_internal::registerized_read<size_t, vec_t<N>, N>(vec, i);
     }
 
 
     template<template<int> class vec_t, int N>
     [[nodiscard]]  static inline constexpr size_t runtime_index_wrapper_log(const vec_t<N> &vec, const uint &i) {
-        return runtime_idx_detail::runtime_index_wrapper_log_internal_read_copy<size_t, vec_t<N>, N>(vec, i);
+        return registerizer_internal::registerized_dicochotomic_read<size_t, vec_t<N>, N>(vec, i);
     }
 
 

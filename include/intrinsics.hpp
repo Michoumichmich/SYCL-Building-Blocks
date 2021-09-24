@@ -39,6 +39,11 @@ namespace sycl::ext {
 
     using sycl::ext::intel::ctz;
 
+    static inline constexpr void assume(bool b) noexcept {
+        if (!b) __builtin_unreachable();
+    }
+
+
     /**
      * @see https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__INTRINSIC__INT.html#group__CUDA__MATH__INTRINSIC__INT_1gf939c350eafa2f13d64e278549d3a8aa
      */
@@ -131,33 +136,45 @@ namespace sycl::ext {
 
 
     template<typename T>
-    static inline constexpr uint8_t get_byte(const T &word, const uint &idx) {
-        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
-        return (word >> (8 * idx)) & 0xFF;
+    static inline constexpr uint8_t get_byte(const T &word, const uint &position) {
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) >= sizeof(uint8_t));
+        assume(position < sizeof(T));
+        return (word >> (8 * position)) & 0xFF;
     }
 
     template<typename T>
-    static inline constexpr T set_byte(const T &word, const uint8_t &byte_in, const uint &idx) {
-        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
-        T select_mask = ~(T(0xFF) << (idx * 8));
-        T new_val = (T(byte_in) & 0xFF) << (idx * 8);
+    static inline constexpr T set_byte(const T &word, const uint8_t &byte_in, const uint &position) {
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) >= sizeof(uint8_t));
+        assume(position < sizeof(T));
+        T select_mask = ~(T(0xFF) << (position * 8));
+        T new_val = (T(byte_in) & 0xFF) << (position * 8);
         return (word & select_mask) + new_val;
     }
 
 
-    template<typename T>
-    static inline constexpr T set_bit(const T &word, const bool &bit, const uint &idx) {
+    template<bool bit, typename T>
+    static inline constexpr T set_bit_in_word(const T &word, const uint &idx) {
         static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
-        if (bit) {
+        assume(idx < sizeof(T) * 8);
+        if constexpr (bit) {
             return word | (T{1} << idx);
         } else {
             return word & (~(T{1} << idx));
         }
-
     }
 
     template<typename T>
-    static inline constexpr bool get_bit(const T &word, const bool &bit, const uint &idx) {
+    static inline constexpr T set_bit_in_word(const T &word, const uint &position, const bool bit) {
+        if (bit) {
+            return set_bit_in_word<true, T>(word, position);
+        } else {
+            return set_bit_in_word<false, T>(word, position);
+        }
+    }
+
+
+    template<typename T>
+    static inline constexpr bool read_bit(const T &word, const uint &idx) {
         static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
         if (word == 0) {
             return false;
@@ -166,11 +183,10 @@ namespace sycl::ext {
     }
 
     template<typename T>
-    static inline constexpr T toggle_bit(const T &word, const bool &bit, const uint &idx) {
+    static inline constexpr T flip_bit(const T &word, const uint &idx) {
         static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
         return word ^ (T{1} << idx);
     }
-
 
     template<typename func>
     static inline uint32_t predicate_to_mask(const sycl::sub_group &sg, func &&predicate) {
