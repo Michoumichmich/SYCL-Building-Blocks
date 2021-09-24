@@ -38,8 +38,13 @@ public:
 
     [[nodiscard]] constexpr bool test(const uint &idx) const noexcept {
         assume(idx < size());
-        storage_type word = sycl::ext::runtime_index_wrapper(storage_array_, idx / word_bit_size());
-        return sycl::ext::read_bit(word, idx % word_bit_size());
+        if constexpr(get_storage_word_count() > 64) {
+            storage_type word = sycl::ext::runtime_index_wrapper_log(storage_array_, idx / word_bit_size());
+            return sycl::ext::read_bit(word, idx % word_bit_size());
+        } else {
+            storage_type word = sycl::ext::runtime_index_wrapper(storage_array_, idx / word_bit_size());
+            return sycl::ext::read_bit(word, idx % word_bit_size());
+        }
     }
 
 
