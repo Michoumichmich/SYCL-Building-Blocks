@@ -145,6 +145,33 @@ namespace sycl::ext {
     }
 
 
+    template<typename T>
+    static inline constexpr T set_bit(const T &word, const bool &bit, const uint &idx) {
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+        if (bit) {
+            return word | (T{1} << idx);
+        } else {
+            return word & (~(T{1} << idx));
+        }
+
+    }
+
+    template<typename T>
+    static inline constexpr bool get_bit(const T &word, const bool &bit, const uint &idx) {
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+        if (word == 0) {
+            return false;
+        }
+        return (word & (T{1} << idx)) != 0;
+    }
+
+    template<typename T>
+    static inline constexpr T toggle_bit(const T &word, const bool &bit, const uint &idx) {
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+        return word ^ (T{1} << idx);
+    }
+
+
     template<typename func>
     static inline uint32_t predicate_to_mask(const sycl::sub_group &sg, func &&predicate) {
         uint32_t group_count = sg.get_local_range().size();
