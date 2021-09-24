@@ -2,59 +2,81 @@
 #include <benchmark/benchmark.h>
 
 
+constexpr uint a = 1140671485;
+constexpr uint c = 12820163;
+constexpr uint m = 1 << 24;
+constexpr int array_size = 16;
+constexpr int iter = 200;
+
+
 size_t benchmark_runtime_byte_array(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
-    uint init = 1022;
-    constexpr int array_size = 8;
-    volatile uint *ptr = sycl::malloc_device<uint>(1, q);
+    uint *ptr = sycl::malloc_device<uint>(1, q);
     q.parallel_for<class runtime_byte_array_kernel_optimised>(size, [=](sycl::id<1> id) {
+        uint rand_num = id;
         runtime_byte_array<array_size> arr{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
-        for (int c = (int) id; c < 100 + id; ++c) {
-            arr.write(0, arr[(c + arr[0]) % array_size]);
-            arr.write(1, arr[c % array_size]);
-            arr.write((init + c) % array_size, c * init);
-            arr.write((c + init) % array_size, arr[1]);
+
+        for (int i = 0; i < iter; ++i) {
+            rand_num = (a * rand_num + c) % m;
+            auto write_idx = rand_num % array_size;
+            auto read_idx = (i * rand_num) % array_size;
+            auto flip_idx = (i + rand_num) % array_size;
+
+            arr.write(rand_num % 2, arr[read_idx]);
+            arr.write(rand_num % 2, arr[write_idx]);
+            arr.write(flip_idx, rand_num);
+            arr.write(read_idx, arr[rand_num % 4]);
         }
         *ptr = arr[*ptr % array_size];
     }).wait();
-    return size * 100;
+    return size * iter;
 }
 
 size_t benchmark_runtime_byte_array_non_specialised(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
-    uint init = 1022;
-    constexpr int array_size = 8;
-    volatile uint *ptr = sycl::malloc_device<uint>(1, q);
+    uint *ptr = sycl::malloc_device<uint>(1, q);
     q.parallel_for<class runtime_byte_array_non_specialised_kernel>(size, [=](sycl::id<1> id) {
+        uint rand_num = id;
         std::array<uint8_t, array_size> arr_storage{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
         sycl::ext::runtime_wrapper arr(arr_storage);
-        for (int c = (int) id; c < 100 + id; ++c) {
-            arr.write(0, arr[(c + arr[0]) % array_size]);
-            arr.write(1, arr[c % array_size]);
-            arr.write((init + c) % array_size, c * init);
-            arr.write((c + init) % array_size, arr[1]);
+
+        for (int i = 0; i < iter; ++i) {
+            rand_num = (a * rand_num + c) % m;
+            auto write_idx = rand_num % array_size;
+            auto read_idx = (i * rand_num) % array_size;
+            auto flip_idx = (i + rand_num) % array_size;
+
+            arr.write(rand_num % 2, arr[read_idx]);
+            arr.write(rand_num % 2, arr[write_idx]);
+            arr.write(flip_idx, rand_num);
+            arr.write(read_idx, arr[rand_num % 4]);
         }
         *ptr = arr[*ptr % array_size];
     }).wait();
-    return size * 100;
+    return size * iter;
 }
 
 size_t benchmark_runtime_byte_array_stack(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
-    uint init = 1022;
-    constexpr int array_size = 8;
-    volatile uint *ptr = sycl::malloc_device<uint>(1, q);
+    uint *ptr = sycl::malloc_device<uint>(1, q);
     q.parallel_for<class runtime_byte_array_stack_kernel>(size, [=](sycl::id<1> id) {
+        uint rand_num = id;
         std::array<uint8_t, array_size> arr{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
-        for (int c = (int) id; c < 100 + id; ++c) {
-            arr[0] = arr[(c + arr[0]) % array_size];
-            arr[1] = arr[c % array_size];
-            arr[(init + c) % array_size] = c * init;
-            arr[(c + init) % array_size] = arr[1];
+
+        for (int i = 0; i < iter; ++i) {
+            rand_num = (a * rand_num + c) % m;
+            auto write_idx = rand_num % array_size;
+            auto read_idx = (i * rand_num) % array_size;
+            auto flip_idx = (i + rand_num) % array_size;
+
+            arr[rand_num % 2] = arr[read_idx];
+            arr[rand_num % 2] = arr[write_idx];
+            arr[flip_idx] = rand_num;
+            arr[read_idx] = arr[rand_num % 4];
         }
         *ptr = arr[*ptr % array_size];
     }).wait();
-    return size * 100;
+    return size * iter;
 }
 
 void registerized_and_optimised_byte_array(benchmark::State &state) {
@@ -86,9 +108,9 @@ void stack_byte_array(benchmark::State &state) {
 }
 
 
-BENCHMARK(registerized_and_optimised_byte_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
-BENCHMARK(registerized_byte_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
-BENCHMARK(stack_byte_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 1073741824);
+BENCHMARK(registerized_and_optimised_byte_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 33554432);
+BENCHMARK(registerized_byte_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 33554432);
+BENCHMARK(stack_byte_array)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3'000'000, 33554432);
 
 
 

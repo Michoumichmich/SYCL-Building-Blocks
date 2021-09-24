@@ -330,17 +330,12 @@ switch(idx){                                            \
          * @param i Index where to read
          * @return Value read
          */
-        [[nodiscard]]  auto operator[](uint i) const {
+        [[nodiscard]] auto read(uint i) const {
             return runtime_index_wrapper(array_ref_, i);
         }
 
-        /**
-         * Reading method for arrays/types with deduced size
-         * @param i Index where to read
-         * @return Value read
-         */
-        [[nodiscard]] auto read(uint i) const {
-            return runtime_index_wrapper(array_ref_, i);
+        [[nodiscard]] auto operator[](uint i) const {
+            return read(i);
         }
 
         /**
@@ -363,21 +358,15 @@ switch(idx){                                            \
          * @return Value read
          */
         template<int N>
-        [[nodiscard]] auto operator[](uint i) const {
-            return runtime_index_wrapper<N>(array_ref_, i);
-        }
-
-
-        /**
-         * Reading method for types with subscript that we don't know the maximum length
-         * @tparam N Maximum value used of the index i
-         * @param i Index where to read
-         * @return Value read
-         */
-        template<int N>
         [[nodiscard]] auto read(uint i) const {
             return runtime_index_wrapper<N>(array_ref_, i);
         }
+
+        template<int N>
+        [[nodiscard]] auto operator[](uint i) const {
+            return read<N>(i);
+        }
+
 
         /**
          * Writing method for types with subscript that we don't know the maximum length

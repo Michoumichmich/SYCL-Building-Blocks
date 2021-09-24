@@ -4,7 +4,7 @@
 constexpr uint a = 1140671485;
 constexpr uint c = 12820163;
 constexpr uint m = 1 << 24;
-constexpr int array_size = 256;
+constexpr int array_size = 128;
 constexpr int iter = 200;
 
 size_t benchmark_runtime_bit_array(size_t size) {
