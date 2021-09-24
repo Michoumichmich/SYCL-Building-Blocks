@@ -2,7 +2,10 @@
 
 Header-based SYCL reusable algorithms and data structures.
 
-## Prefix Scan
+## Register bit array
+Dynamically addressable bit array which will be kept in GPU registers. The API is based on the one offered by `std::bitset` (C++20).
+
+## Prefix Scans
 
 ### Decoupled lookback prefix scan
 

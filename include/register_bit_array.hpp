@@ -10,9 +10,30 @@
 
 using sycl::ext::assume;
 
+
+/**
+ * @see https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan
+ * @tparam T
+ * @param v
+ * @return
+ */
+template<typename T>
+static constexpr inline uint popcount_kerninghan(T v) {
+    static_assert(std::is_unsigned_v<T> && std::is_integral_v<T>);
+    uint c; // c accumulates the total bits set in v
+    for (c = 0; v; c++) {
+        v &= v - 1; // clear the least significant bit set
+    }
+    return c;
+}
+
+/**
+ * For large sizes of N (>1280), the array might not fit in GPU registers, moving to uint64_t solves the issue. For smalle sizes, uint64_t is slower.
+ * @tparam N Number of bits to store
+ * @tparam storage_type Word type used to store the bits.
+ */
 template<int N, typename storage_type = uint32_t>
 class register_bit_array {
-    static_assert(std::is_unsigned_v<storage_type> && std::is_integral_v<storage_type>);
 
 public:
 
@@ -36,6 +57,11 @@ public:
         }
     }
 
+    /**
+     * Checks whether a bit is set
+     * @param idx index to test
+     * @return
+     */
     [[nodiscard]] constexpr bool test(const uint &idx) const noexcept {
         assume(idx < size());
         if constexpr(get_storage_word_count() > 64) {
@@ -47,11 +73,20 @@ public:
         }
     }
 
-
+    /**
+     * Checks whether a bit is set
+     * @param idx bit index to test
+     * @return
+     */
     [[nodiscard]] constexpr bool operator[](const uint &i) const noexcept {
         return test(i);
     }
 
+    /**
+     * Set a bit to true
+     * @param idx the position of the bit to set
+     * @return *this
+     */
     constexpr register_bit_array &set(const uint &idx) noexcept {
         assume(idx < size());
         sycl::ext::runtime_index_wrapper_transform_ith(
@@ -63,6 +98,11 @@ public:
         return *this;
     }
 
+    /**
+     * Unsets a bit ie. sets it to false
+     * @param idx the position of the bit to set
+     * @return *this
+     */
     constexpr register_bit_array &reset(const uint &idx) noexcept {
         assume(idx < size());
         sycl::ext::runtime_index_wrapper_transform_ith(
@@ -74,6 +114,10 @@ public:
         return *this;
     }
 
+    /**
+     * Sets all the bits in the to false.
+     * @return *this
+     */
     constexpr register_bit_array &reset() noexcept {
 #pragma unroll
         for (auto &a: storage_array_) {
@@ -83,6 +127,11 @@ public:
     }
 
 
+    /**
+     * Flips a bit
+     * @param idx the position of the bit to flit
+     * @return *this
+     */
     constexpr register_bit_array &flip(const uint &idx) noexcept {
         assume(idx < size());
         sycl::ext::runtime_index_wrapper_transform_ith(
@@ -94,9 +143,15 @@ public:
         return *this;
     }
 
-    constexpr register_bit_array &write(const uint &idx, bool bit) noexcept {
+    /**
+     * Sets a bit to val
+     * @param idx the position of the bit to set
+     * @param val value to store
+     * @return *this
+     */
+    constexpr register_bit_array &write(const uint &idx, bool val) noexcept {
         assume(idx < size());
-        if (bit) {
+        if (val) {
             set(idx);
         } else {
             reset(idx);
@@ -104,6 +159,10 @@ public:
         return *this;
     }
 
+    /**
+     * Counts the number of bits that are set
+     * @return uint32_t representing the number of bit set
+     */
     [[nodiscard]] constexpr uint32_t count() const noexcept {
         uint32_t counter = 0;
         sycl::ext::runtime_index_wrapper_for_all(
@@ -112,12 +171,20 @@ public:
                     if constexpr(std::is_same_v<storage_type, bool>) {
                         if (word) ++counter;
                     } else {
+#ifdef SYCL_DEVICE_ONLY
                         counter += sycl::popcount(word); // All extra bits in the storage word are set to 0
+#else
+                        counter += popcount_kerninghan(word);
+#endif
                     }
                 });
         return counter;
     }
 
+    /**
+     * Checks if none of the bits are set to true
+     * @return bool
+     */
     [[nodiscard]] constexpr bool none() const noexcept {
         bool result = true;
         sycl::ext::runtime_index_wrapper_for_all(
@@ -128,17 +195,19 @@ public:
         return result;
     }
 
+    /**
+     * Checks if any bit is set to true.
+     * @return bool
+     */
     [[nodiscard]] constexpr bool any() const {
-        bool result = false;
-        sycl::ext::runtime_index_wrapper_for_all(
-                storage_array_,
-                [&](const uint, const storage_type &word) {
-                    result = result || (word != 0); // All extra bits in the storage word are set to 0
-                });
-        return result;
+        return !none();
     }
 
 
+    /**
+     * Checks whether all the bits are set to true
+     * @return bool
+     */
     [[nodiscard]] constexpr bool all() const {
         bool result = true;
         sycl::ext::runtime_index_wrapper_for_all(
@@ -176,11 +245,11 @@ private:
     }
 
     std::array<storage_type, get_storage_word_count()> storage_array_{};
-
+    static_assert(std::is_unsigned_v<storage_type> && std::is_integral_v<storage_type>);
 };
 
 
-static inline void compile_time_check() {
+static inline void register_bit_array_compile_time_tests() {
     constexpr register_bit_array<5, bool> arr{true, false, true, false, true};
     static_assert(arr.size() == 5);
     static_assert(!arr.none());
@@ -188,10 +257,47 @@ static inline void compile_time_check() {
     static_assert(!arr.all());
     static_assert(arr.count() == 3);
 
-    constexpr register_bit_array<10, bool> arr2{true, true, true, true, true, true, true, true, true, true};
+    constexpr register_bit_array<10, unsigned char> arr2{true, true, true, true, true, true, true, true, true, true};
     static_assert(arr2.size() == 10);
     static_assert(!arr2.none());
     static_assert(arr2.any());
     static_assert(arr2.all());
     static_assert(arr2.count() == 10);
+
+    constexpr register_bit_array<10, unsigned char> arr3{false, true, true, true, true, true, true, true, true, true};
+    static_assert(arr3.size() == 10);
+    static_assert(!arr3.none());
+    static_assert(arr3.any());
+    static_assert(!arr3.all());
+    static_assert(arr3.count() == 9);
+
+    constexpr register_bit_array<4, uint64_t> arr4{false, false, false, false};
+    static_assert(arr4.size() == 4);
+    static_assert(arr4.none());
+    static_assert(!arr4.any());
+    static_assert(!arr4.all());
+    static_assert(arr4.count() == 0);
+
+    constexpr int sieve_size = 100;
+    constexpr auto primes_100 = [&]() {
+        register_bit_array<sieve_size + 1, uint64_t> tmp{};
+        for (int i = 0; i < tmp.size(); ++i)
+            tmp.set(i);
+
+        for (int p = 2; p * p <= sieve_size; p++) {
+            if (tmp.test(p)) {
+                for (int i = p * p; i <= sieve_size; i += p)
+                    tmp.reset(i);
+            }
+        }
+
+        register_bit_array<sieve_size + 1, uint8_t> primes{};
+        for (int p = 2; p < tmp.size(); ++p)
+            primes.write(p, tmp[p]);
+        return primes;
+    }();
+
+    static_assert(!primes_100.all());
+    static_assert(primes_100.any());
+    static_assert(primes_100.count() == 25);
 }
