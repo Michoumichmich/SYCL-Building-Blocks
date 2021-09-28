@@ -1,5 +1,5 @@
 /**
- * Array of bits accessible with runtimes indices and that is stored using larger types to reduce register look-up lacencies
+ * Array of bits accessible with runtimes indices and that is stored using larger types to reduce register look-up latencies
  *
  * See std::bitset interface
  */
@@ -12,23 +12,7 @@ using sycl::ext::assume;
 
 
 /**
- * @see https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan
- * @tparam T
- * @param v
- * @return
- */
-template<typename T>
-static constexpr inline uint popcount_kerninghan(T v) {
-    static_assert(std::is_unsigned_v<T> && std::is_integral_v<T>);
-    uint c; // c accumulates the total bits set in v
-    for (c = 0; v; c++) {
-        v &= v - 1; // clear the least significant bit set
-    }
-    return c;
-}
-
-/**
- * For large sizes of N (>1280), the array might not fit in GPU registers, moving to uint64_t solves the issue. For smalle sizes, uint64_t is slower.
+ * For large sizes of N (>1280), the array might not fit in GPU registers, moving to uint64_t solves the issue. For small sizes, uint64_t is slower.
  * @tparam N Number of bits to store
  * @tparam storage_type Word type used to store the bits.
  */
@@ -45,7 +29,7 @@ public:
     }
 
     /**
-     * Connstructor that takes a list of bytes
+     * Constructor that takes a list of bytes
      * @param init
      */
     constexpr register_bit_array(const std::initializer_list<bool> &init) noexcept: register_bit_array() {
@@ -64,6 +48,12 @@ public:
      */
     [[nodiscard]] constexpr bool test(const uint &idx) const noexcept {
         assume(idx < size());
+        /**
+         * The point of this structure is to force register storage of the data so we cannot address the data.
+         * Given that we're performing register lookup, for small register numbers, a linear search is the fastest
+         * way, for bigger sizes, a dichotomic search performs better. (logarithmic complexity). But... that's a lot
+         * of registers to go through. You'd be better using shared memory.
+         */
         if constexpr(get_storage_word_count() > 64) {
             storage_type word = sycl::ext::runtime_index_wrapper_log(storage_array_, idx / word_bit_size());
             return sycl::ext::read_bit(word, idx % word_bit_size());
@@ -97,6 +87,23 @@ public:
                 });
         return *this;
     }
+
+    /**
+     * Sets all the bits in the array.
+     * @return *this
+     */
+    constexpr register_bit_array &set() noexcept {
+        for (auto &word: storage_array_) {
+            if constexpr(std::is_same_v<bool, storage_type>) {
+                word = true;
+            } else {
+                word = storage_type{0} - 1;
+            }
+
+        }
+        return *this;
+    }
+
 
     /**
      * Unsets a bit ie. sets it to false
@@ -182,27 +189,35 @@ public:
     }
 
     /**
-     * Checks if none of the bits are set to true
+     * Checks if any bit is set to true.
      * @return bool
      */
-    [[nodiscard]] constexpr bool none() const noexcept {
-        bool result = true;
+    [[nodiscard]] constexpr bool any() const {
+        bool result = false;
         sycl::ext::runtime_index_wrapper_for_all(
                 storage_array_,
-                [&](const uint, const storage_type &word) {
-                    result = result && (word == 0); // All extra bits in the storage word are set to 0
+                [&](const uint &i, const storage_type &word) {
+                    if constexpr(std::is_same_v<storage_type, bool>) {
+                        result = result || word;
+                    } else {
+                        if (i + 1 != get_storage_word_count()) {
+                            result = result || (word != 0);
+                        } else {
+                            auto low_bit_mask = generate_low_bit_mask(size() % word_bit_size());
+                            result = result || ((word & low_bit_mask) != 0);
+                        }
+                    }
                 });
         return result;
     }
 
     /**
-     * Checks if any bit is set to true.
+     * Checks if none of the bits are set to true
      * @return bool
      */
-    [[nodiscard]] constexpr bool any() const {
-        return !none();
+    [[nodiscard]] constexpr bool none() const noexcept {
+        return !any();
     }
-
 
     /**
      * Checks whether all the bits are set to true
@@ -219,7 +234,8 @@ public:
                         if (i + 1 != get_storage_word_count()) {
                             result = result && (((word + 1) & word) == 0) && (word != 0);
                         } else {
-                            result = result && ((word + 1) == (storage_type{1} << (size() % word_bit_size()))); // All extra bits in the storage word are set to 0
+                            auto low_bit_mask = generate_low_bit_mask(size() % word_bit_size());
+                            result = result && ((word & low_bit_mask) == low_bit_mask);
                         }
                     }
                 });
@@ -240,12 +256,28 @@ private:
         }
     }
 
+    static constexpr storage_type generate_low_bit_mask(uint i) {
+        return (storage_type{1} << i) - 1;
+    }
+
     static constexpr uint32_t get_storage_word_count() {
         return (N + word_bit_size() - 1) / word_bit_size();
     }
 
+    /**
+    * @see https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan
+    */
+    static constexpr inline uint popcount_kerninghan(storage_type v) {
+        uint c; // c accumulates the total bits set in v
+        for (c = 0U; v; c++) {
+            v &= v - 1U; // clear the least significant bit set
+        }
+        return c;
+    }
+
     std::array<storage_type, get_storage_word_count()> storage_array_{};
     static_assert(std::is_unsigned_v<storage_type> && std::is_integral_v<storage_type>);
+    static_assert(generate_low_bit_mask(10) == storage_type(0b1111111111));
 };
 
 
@@ -281,8 +313,21 @@ static inline void register_bit_array_compile_time_tests() {
     constexpr int sieve_size = 100;
     constexpr auto primes_100 = [&]() {
         register_bit_array<sieve_size + 1, uint64_t> tmp{};
+        register_bit_array<sieve_size + 1, uint8_t> primes{};
+
+        tmp.set();
+        if (!tmp.all()) {
+            return primes;
+        }
+
+        tmp.reset();
+        if (!tmp.none()) {
+            return primes;
+        }
+
         for (int i = 0; i < tmp.size(); ++i)
             tmp.set(i);
+
 
         for (int p = 2; p * p <= sieve_size; p++) {
             if (tmp.test(p)) {
@@ -291,7 +336,7 @@ static inline void register_bit_array_compile_time_tests() {
             }
         }
 
-        register_bit_array<sieve_size + 1, uint8_t> primes{};
+
         for (int p = 2; p < tmp.size(); ++p)
             primes.write(p, tmp[p]);
         return primes;

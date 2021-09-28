@@ -7,9 +7,9 @@ Dynamically addressable bit array which will be kept in GPU registers. The API i
 
 ## Prefix Scans
 
-### Decoupled lookback prefix scan
+### Decoupled look-back prefix scan
 
-Implements a modified version of the *Single-pass Parallel Prefix Scan with Decoupled Look-back* with variable stragegy: *scan-then-reduce* or *reduce-then-scan*. The strategy depends on the previous partition
+Implements a modified version of the *Single-pass Parallel Prefix Scan with Decoupled Look-back* with variable strategy: *scan-then-reduce* or *reduce-then-scan*. The strategy depends on the previous partition
 descriptors to hide latencies. Performs at speeds close to `memcpy` and has only *2n* memory movements. Forward guarantees progress required.
 
 ### Cooperative Prefix Scan
@@ -19,7 +19,7 @@ performed in a single kernel launch and using the whole device. The bottleneck i
 
 ### Reduction
 
-Parallel reduction algorithm using SYCL reductors and a recursive approach to unroll the loops. Memory bound, performance is thus equivalent to CUB.
+Parallel reduction algorithm using the SYCL reduction interface and a recursive approach to unroll the loops. Memory bound, performance is thus equivalent to CUB.
 
 ## Intrinsics
 
@@ -32,7 +32,7 @@ Functions and Classes used to access arrays-based types with a dynamic/runtime i
 This allows also the compiler to see nex optimisations (see my SYCL Summer Session Talk). For best performance, if addressing bytes, pack them in 32/64 bit words and extract the byte yourself and use the library to
 address words.
 
-When writing to the array, if all threads access the same index only, there is a ligher/faster version available by defining `RUNTIME_IDX_STORE_USE_SWITCH`. Sometimes registerization won't happen using. Read speed is not
+When writing to the array, if all threads access the same index only, there is a lighter/faster version available by defining `RUNTIME_IDX_STORE_USE_SWITCH`. Sometimes registerization won't happen using. Read speed is not
 affected.
 
 There is a read version, `runtime_index_wrapper_log` that uses a binary search. It reduces the number of steps, but often is slower because of thread divergence if not all the threads access the same value.
@@ -88,12 +88,12 @@ assert(j == acc.read<vec_size>(i % 10)); // reads the value
 
 ## runtime_byte_array
 
-This class solves the issue previously mentionned of storing bytes. It allows to increase the look-up time by packing the bytes in bigger words (default is 32 bits words).
+This class solves the issue previously mentioned of storing bytes. It allows to increase the look-up time by packing the bytes in bigger words (default is 32 bits words).
 
 ```C++
 runtime_byte_array<4> array{'S', 'Y', 'C', 'L', ..}; // Creates an array stored in a 32 bit word, by default
 
-runtime_byte_array<256, uint64_t> array2{}; // Create an array of 256 0-intialised bytes stored in 32 64-bit words.
+runtime_byte_array<256, uint64_t> array2{}; // Create an array of 256 0-initialized bytes stored in 32 64-bit words.
 
 ```
 
