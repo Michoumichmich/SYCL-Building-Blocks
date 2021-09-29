@@ -25,7 +25,6 @@
 #include <sycl/sycl.hpp>
 #include <type_traits>
 #include <array>
-#include <intrinsics.hpp>
 
 namespace sycl::ext {
     namespace registerizer_internal {

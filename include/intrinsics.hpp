@@ -36,8 +36,9 @@ namespace internal {
  */
 namespace sycl::ext {
 
-
+#ifdef SYCL_IMPLEMENTATION_ONEAPI
     using sycl::ext::intel::ctz;
+#endif
 
     static inline constexpr void assume(bool b) noexcept {
         if (!b) __builtin_unreachable();
@@ -126,12 +127,20 @@ namespace sycl::ext {
         return reverse_num;
     }
 
+    uint32_t upsample(const uint16_t &hi, const uint16_t &lo) {
+        return (uint32_t(hi) << 16) + lo;
+    }
+
     template<typename T>
-    static inline std::enable_if_t<std::is_same_v<T, std::byte> || std::is_same_v<T, sycl::uchar>, uint32_t>
+    static inline std::enable_if_t<std::is_same_v<T, std::byte> || std::is_same_v<T, uint8_t>, uint32_t>
     upsample(const T &hi_hi, const T &hi, const T &lo, const T &lo_lo) {
         uint16_t hi_upsampled = (uint16_t(hi_hi) << 8) + hi;
         uint16_t lo_upsampled = (uint16_t(lo) << 8) + lo_lo;
+#ifdef SYCL_IMPLEMENTATION_HIPSYCL
+        return upsample(hi_upsampled, lo_upsampled);
+#else
         return sycl::upsample(hi_upsampled, lo_upsampled);
+#endif
     }
 
 
@@ -198,11 +207,12 @@ namespace sycl::ext {
         return out;
     }
 
+#ifndef SYCL_IMPLEMENTATION_HIPSYCL
     static inline uint32_t ballot(const sycl::sub_group &sg, int predicate) {
         uint32_t local_val = (predicate ? 1u : 0u) << (sg.get_local_linear_id());
         return sycl::reduce_over_group(sg, local_val, sycl::plus<>());
     }
-
+#endif
 
     template<typename T>
     static inline uint32_t match_any(const sycl::sub_group &sg, T val) {
@@ -215,7 +225,7 @@ namespace sycl::ext {
         return found;
     }
 
-
+#ifndef SYCL_IMPLEMENTATION_HIPSYCL
     template<typename T>
     static inline bool match_all(const sycl::sub_group &sg, uint32_t mask, T val) {
         if (mask == 0) return false;
@@ -224,7 +234,7 @@ namespace sycl::ext {
         const T from_others = sycl::select_from_group(sg, val, first_work_item_id);
         return mask == (ballot(sg, val == from_others) & mask);
     }
-
+#endif
 
     template<typename T>
     static inline T broadcast_leader(const sycl::sub_group &sg, T val) {

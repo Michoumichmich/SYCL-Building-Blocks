@@ -14,7 +14,7 @@ struct my_struct {
 size_t benchmark_regular_stack_array(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class regular_stack_array_kernel>(size, [=](sycl::id<1> id) {
+    q.parallel_for<class regular_stack_array_kernel>(sycl::range<1>{size}, [=](sycl::id<1> id) {
         my_struct data{};
         data.array[0] = *ptr;
         uint init = *ptr;
@@ -32,7 +32,7 @@ size_t benchmark_regular_stack_array(size_t size) {
 size_t benchmark_array_register(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_wrapper_kernel>(size, [=](sycl::id<1> id) {
+    q.parallel_for<class runtime_wrapper_kernel>(sycl::range<1>{size}, [=](sycl::id<1> id) {
         my_struct data{};
         data.array[0] = *ptr;
         uint init = *ptr;
@@ -50,7 +50,7 @@ size_t benchmark_array_register(size_t size) {
 size_t benchmark_array_register_with_class(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     volatile uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_class_wrapper_kernel>(size, [=](sycl::id<1> id) {
+    q.parallel_for<class runtime_class_wrapper_kernel>(sycl::range<1>{size}, [=](sycl::id<1> id) {
         my_struct data{};
         data.array[0] = *ptr;
         uint init = *ptr;

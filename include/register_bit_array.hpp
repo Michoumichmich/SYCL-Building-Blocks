@@ -7,6 +7,7 @@
 #pragma once
 
 #include <runtime_index_wrapper.hpp>
+#include <intrinsics.hpp>
 
 using sycl::ext::assume;
 

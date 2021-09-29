@@ -12,8 +12,8 @@ constexpr int iter = 200;
 size_t benchmark_runtime_byte_array(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_byte_array_kernel_optimised>(size, [=](sycl::id<1> id) {
-        uint rand_num = id;
+    q.parallel_for<class runtime_byte_array_kernel_optimised>(sycl::range<1>{size}, [=](sycl::id<1> id) {
+        uint rand_num = id.get(0);
         runtime_byte_array<array_size> arr{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
 
         for (int i = 0; i < iter; ++i) {
@@ -35,8 +35,8 @@ size_t benchmark_runtime_byte_array(size_t size) {
 size_t benchmark_runtime_byte_array_non_specialised(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_byte_array_non_specialised_kernel>(size, [=](sycl::id<1> id) {
-        uint rand_num = id;
+    q.parallel_for<class runtime_byte_array_non_specialised_kernel>(sycl::range<1>{size}, [=](sycl::id<1> id) {
+        uint rand_num = id.get(0);
         std::array<uint8_t, array_size> arr_storage{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
         sycl::ext::runtime_wrapper arr(arr_storage);
 
@@ -59,8 +59,8 @@ size_t benchmark_runtime_byte_array_non_specialised(size_t size) {
 size_t benchmark_runtime_byte_array_stack(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_byte_array_stack_kernel>(size, [=](sycl::id<1> id) {
-        uint rand_num = id;
+    q.parallel_for<class runtime_byte_array_stack_kernel>(sycl::range<1>{size}, [=](sycl::id<1> id) {
+        uint rand_num = id.get(0);
         std::array<uint8_t, array_size> arr{static_cast<unsigned char>(*ptr), static_cast<unsigned char>(*ptr)};
 
         for (int i = 0; i < iter; ++i) {

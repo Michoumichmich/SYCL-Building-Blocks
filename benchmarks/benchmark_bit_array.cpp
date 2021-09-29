@@ -10,11 +10,9 @@ constexpr int iter = 200;
 size_t benchmark_runtime_bit_array(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_bit_array_kernel_optimised>(size, [=](sycl::id<1> id) {
-        uint rand_num = id;
-
+    q.parallel_for<class runtime_bit_array_kernel_optimised>(sycl::range<1>(size), [=](sycl::id<1> id) {
+        uint rand_num = id.get(0);
         register_bit_array<array_size> arr{};
-
         for (int i = 0; i < iter; ++i) {
             rand_num = (a * rand_num + c) % m;
             auto write_idx = rand_num % array_size;
@@ -33,12 +31,10 @@ size_t benchmark_runtime_bit_array(size_t size) {
 size_t benchmark_runtime_bit_array_stack(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
     uint *ptr = sycl::malloc_device<uint>(1, q);
-    q.parallel_for<class runtime_bit_array_stack_kernel>(size, [=](sycl::id<1> id) {
-        uint rand_num = id;
-
+    q.parallel_for<class runtime_bit_array_stack_kernel>(sycl::range<1>(size), [=](sycl::id<1> id) {
+        uint rand_num = id.get(0);
         std::array<bool, array_size> arr{};
         arr.fill(false);
-
         for (int i = 0; i < iter; ++i) {
             rand_num = (a * rand_num + c) % m;
             auto write_idx = rand_num % array_size;
