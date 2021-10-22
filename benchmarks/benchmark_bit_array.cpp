@@ -1,5 +1,9 @@
+#define CONSTEVAL_REGISTER_SHORTCUT
+
 #include <benchmark/benchmark.h>
 #include <register_bit_array.hpp>
+#include <numeric>
+
 
 constexpr uint a = 1140671485;
 constexpr uint c = 12820163;
@@ -7,30 +11,40 @@ constexpr uint m = 1 << 24;
 constexpr int array_size = 128;
 constexpr int iter = 200;
 
+
 size_t benchmark_runtime_bit_array(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
-    uint *ptr = sycl::malloc_device<uint>(1, q);
+    uint *ptr = sycl::malloc_device<uint>(size, q);
     q.parallel_for<class runtime_bit_array_kernel_optimised>(sycl::range<1>(size), [=](sycl::id<1> id) {
         uint rand_num = id.get(0);
         register_bit_array<array_size> arr{};
+
         for (int i = 0; i < iter; ++i) {
             rand_num = (a * rand_num + c) % m;
             auto write_idx = rand_num % array_size;
             auto read_idx = (i * rand_num) % array_size;
             auto flip_idx = (i + rand_num) % array_size;
 
+#pragma unroll
+            for (int j = 0; j < array_size / 2; ++j) {
+                arr.swap(j, array_size - j - 1);
+                //arr.swap(array_size - j - 1, j);
+            }
+
             arr.write(write_idx, arr[read_idx]);
             arr.reset(read_idx);
             arr.flip(flip_idx);
         }
-        *ptr = arr.count();
+        ptr[id.get(0)] = arr.count();
     }).wait();
+    //std::cout << std::accumulate(ptr, ptr + size, 0) << std::endl;
+    sycl::free(ptr, q);
     return size * iter;
 }
 
 size_t benchmark_runtime_bit_array_stack(size_t size) {
     sycl::queue q{sycl::gpu_selector{}};
-    uint *ptr = sycl::malloc_device<uint>(1, q);
+    uint *ptr = sycl::malloc_device<uint>(size, q);
     q.parallel_for<class runtime_bit_array_stack_kernel>(sycl::range<1>(size), [=](sycl::id<1> id) {
         uint rand_num = id.get(0);
         std::array<bool, array_size> arr{};
@@ -41,12 +55,21 @@ size_t benchmark_runtime_bit_array_stack(size_t size) {
             auto read_idx = (i * rand_num) % array_size;
             auto flip_idx = (i + rand_num) % array_size;
 
+#pragma unroll
+            for (int j = 0; j < array_size / 2; ++j) {
+                std::swap(arr[j], arr[array_size - j - 1]);
+                //std::swap(arr[array_size - j - 1], arr[j]);
+            }
+
             arr[write_idx] = arr[read_idx];
             arr[read_idx] = false;
             arr[flip_idx] ^= 1;
         }
-        *ptr = std::count(arr.begin(), arr.end(), true);
+
+        ptr[id.get(0)] = std::count(arr.begin(), arr.end(), true);
     }).wait();
+    //std::cout << std::accumulate(ptr, ptr + size, 0) << std::endl;
+    sycl::free(ptr, q);
     return size * iter;
 }
 

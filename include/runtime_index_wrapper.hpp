@@ -100,6 +100,14 @@ switch(idx){                                            \
         template<typename T, typename array_t, int N, int idx_max = N - 1>
         static inline constexpr void registerized_store(array_t &arr, const uint &i, const T &val) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
+
+#ifdef CONSTEVAL_REGISTER_SHORTCUT
+            if (__builtin_is_constant_evaluated()) {
+                arr[i] = val;
+                return;
+            }
+#endif
+
             if constexpr (idx_max == 0 || N == 1) {
                 arr[0] = val;
             } else if constexpr (N == 2) {
@@ -146,7 +154,7 @@ switch(idx){                                            \
         template<typename func, typename T, typename array_t, int N, int idx_max = N - 1>
         static inline constexpr void registerized_const_forall(const array_t &arr, const func &&f) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
-#pragma unroll
+#pragma unroll N
             for (uint i = 0; i < N; ++i) {
                 f(i, arr[i]);
             }
@@ -155,6 +163,13 @@ switch(idx){                                            \
         template<typename func, typename T, typename array_t, int N, int idx_max = N - 1>
         static inline constexpr void registerize_transform_ith(array_t &arr, const func &&f, const uint &idx) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
+#ifdef CONSTEVAL_REGISTER_SHORTCUT
+            if (__builtin_is_constant_evaluated()) {
+                arr[idx] = f(arr[idx]);
+                return;
+            }
+#endif
+
 #pragma unroll
             for (uint i = 0; i < N; ++i) {
                 arr[i] = (idx == i) ? f(arr[i]) : arr[i];
@@ -165,6 +180,12 @@ switch(idx){                                            \
         template<typename T, typename array_t, int N, int idx_max = N - 1>
         [[nodiscard]] static inline constexpr T registerized_read(const array_t &arr, const uint &idx) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
+
+#ifdef CONSTEVAL_REGISTER_SHORTCUT
+            if (__builtin_is_constant_evaluated()) {
+                return arr[idx];
+            }
+#endif
             if constexpr (idx_max == 0 || N == 1) {
                 return arr[0];
             } else {
@@ -179,6 +200,13 @@ switch(idx){                                            \
         template<typename T, typename array_t, size_t N, int end = N - 1, int start = 0>
         [[nodiscard]] static inline constexpr T registerized_dicochotomic_read(const array_t &array, const uint &idx) noexcept {
             static_assert(start <= end);
+
+#ifdef CONSTEVAL_REGISTER_SHORTCUT
+            if (__builtin_is_constant_evaluated()) {
+                return array[idx];
+            }
+#endif
+
             if constexpr (end == start) {
                 return array[end];
             } else {

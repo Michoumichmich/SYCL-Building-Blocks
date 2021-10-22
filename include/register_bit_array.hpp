@@ -90,6 +90,8 @@ public:
      */
     constexpr register_bit_array &write(const uint &idx, bool val) noexcept;
 
+    constexpr register_bit_array &swap(const uint &i, const uint &j) noexcept;
+
     /**
      * Counts the number of bits that are set
      * @return uint32_t representing the number of bit set
@@ -278,6 +280,15 @@ constexpr register_bit_array<N, storage_type> &register_bit_array<N, storage_typ
 }
 
 template<int N, typename storage_type>
+constexpr register_bit_array<N, storage_type> &register_bit_array<N, storage_type>::swap(const uint &i, const uint &j) noexcept {
+    assume(i < size() && j < size());
+    bool tmp = test(i);
+    write(i, test(j));
+    write(j, tmp);
+    return *this;
+}
+
+template<int N, typename storage_type>
 constexpr uint32_t register_bit_array<N, storage_type>::count() const noexcept {
     uint32_t counter = 0;
     sycl::ext::runtime_index_wrapper_for_all(
@@ -344,6 +355,7 @@ constexpr bool register_bit_array<N, storage_type>::all() const {
 
 template<int N, typename storage_type>
 constexpr register_bit_array<N, storage_type> &register_bit_array<N, storage_type>::operator|=(const register_bit_array<N, storage_type> &other) {
+#pragma unroll
     for (int i = 0; i < N; ++i) {
         this->storage_array_[i] |= other.storage_array_[i];
     }
@@ -353,6 +365,7 @@ constexpr register_bit_array<N, storage_type> &register_bit_array<N, storage_typ
 
 template<int N, typename storage_type>
 constexpr register_bit_array<N, storage_type> &register_bit_array<N, storage_type>::operator^=(const register_bit_array<N, storage_type> &other) {
+#pragma unroll
     for (int i = 0; i < N; ++i) {
         this->storage_array_[i] ^= other.storage_array_[i];
     }
@@ -362,6 +375,7 @@ constexpr register_bit_array<N, storage_type> &register_bit_array<N, storage_typ
 
 template<int N, typename storage_type>
 constexpr register_bit_array<N, storage_type> &register_bit_array<N, storage_type>::operator&=(const register_bit_array<N, storage_type> &other) {
+#pragma unroll
     for (int i = 0; i < N; ++i) {
         this->storage_array_[i] &= other.storage_array_[i];
     }
@@ -422,6 +436,12 @@ static inline void register_bit_array_compile_time_tests() {
                 for (int i = p * p; i <= sieve_size; i += p)
                     tmp.reset(i);
             }
+        }
+
+
+        for (int j = 0; j < tmp.size() / 2; ++j) {
+            tmp.swap(j, tmp.size() - j);
+            tmp.swap(j, tmp.size() - j);
         }
 
 

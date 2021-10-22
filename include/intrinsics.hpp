@@ -41,7 +41,8 @@ namespace sycl::ext {
 #endif
 
     static inline constexpr void assume(bool b) noexcept {
-        if (!b) __builtin_unreachable();
+        __builtin_assume(b);
+        //  if (!b) __builtin_unreachable();
     }
 
 
