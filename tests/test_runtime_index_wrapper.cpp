@@ -121,7 +121,6 @@ void check_sycl_vector() {
     for (uint i = 0; i < 16; ++i) {
         ASSERT_EQ(runtime_index_wrapper(arr2, i), i);
     }
-
 }
 
 void check_sycl_vector_log() {
@@ -130,6 +129,7 @@ void check_sycl_vector_log() {
         runtime_index_wrapper(arr, i, i);
     }
     for (uint i = 0; i < 16; ++i) {
+        printf("Reading %d \n", i);
         ASSERT_EQ(runtime_index_wrapper_log(arr, i), i);
     }
 
@@ -262,5 +262,4 @@ TEST(runtime_byte_array, array) {
     check_byte_array<uint8_t, 20>();
     check_byte_array<uint8_t, 30>();
     check_byte_array<uint8_t, 40>();
-
 }

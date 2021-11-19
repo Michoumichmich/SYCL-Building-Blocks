@@ -32,7 +32,7 @@ namespace parallel_primitives {
 
 namespace parallel_primitives::internal {
 
-    
+
     template<typename T>
     constexpr bool is_sycl_arithmetic() {
         return std::is_arithmetic_v<T> || std::is_same_v<T, sycl::half>;
@@ -40,30 +40,31 @@ namespace parallel_primitives::internal {
 
     template<typename T, typename func>
     constexpr static inline T get_init() {
+#ifndef SYCL_IMPLEMENTATION_HIPSYCL
         static_assert(sycl::has_known_identity<func, T>::value);
         return sycl::known_identity<func, T>::value;
-/*
-        if constexpr(std::is_same_v<func, sycl::plus<>> && is_sycl_arithmetic<T>()) {
+#else
+        if constexpr(std::is_same_v<func, sycl::plus<T>> && is_sycl_arithmetic<T>()) {
             return T{};
-        } else if constexpr (std::is_same_v<func, sycl::multiplies<>> && is_sycl_arithmetic<T>()) {
+        } else if constexpr (std::is_same_v<func, sycl::multiplies<T>> && is_sycl_arithmetic<T>()) {
             return T{1};
-        } else if constexpr((std::is_same_v<func, sycl::bit_or<>> || std::is_same_v<func, sycl::bit_xor<>>) && std::is_unsigned_v<T>) {
+        } else if constexpr((std::is_same_v<func, sycl::bit_or<T>> || std::is_same_v<func, sycl::bit_xor<T>>) && std::is_unsigned_v<T>) {
             return T{};
-        } else if constexpr (std::is_same_v<func, sycl::bit_and<>> && std::is_unsigned_v<T>) {
+        } else if constexpr (std::is_same_v<func, sycl::bit_and<T>> && std::is_unsigned_v<T>) {
             return ~T{};
-        } else if constexpr (std::is_same_v<func, sycl::minimum<>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity) {
+        } else if constexpr (std::is_same_v<func, sycl::minimum<T>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity) {
             return std::numeric_limits<T>::infinity(); // +INF only for floating point that has infinity
-        } else if constexpr (std::is_same_v<func, sycl::minimum<>> && !std::numeric_limits<T>::has_infinity) {
+        } else if constexpr (std::is_same_v<func, sycl::minimum<T>> && !std::numeric_limits<T>::has_infinity) {
             return std::numeric_limits<T>::max();
-        } else if constexpr (std::is_same_v<func, sycl::maximum<>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity) {
+        } else if constexpr (std::is_same_v<func, sycl::maximum<T>> && std::is_floating_point_v<T> && std::numeric_limits<T>::has_infinity) {
             return -std::numeric_limits<T>::infinity(); // -INF only for floating point that has infinity
-        } else if constexpr (std::is_same_v<func, sycl::maximum<>>) {
+        } else if constexpr (std::is_same_v<func, sycl::maximum<T>>) {
             return std::numeric_limits<T>::lowest();
         } else {
             fail_to_compile<T, func>();
             return 0;
         }
-*/
+#endif
     }
 
 
@@ -86,8 +87,13 @@ namespace parallel_primitives::internal {
 
     template<typename KernelName>
     size_t get_max_work_items(sycl::queue &q) {
+#ifndef SYCL_IMPLEMENTATION_HIPSYCL
         sycl::kernel_id id = sycl::get_kernel_id<KernelName>();
         auto kernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(q.get_context()).get_kernel(id);
         return kernel.get_info<sycl::info::kernel_device_specific::work_group_size>(q.get_device());
+#else
+        return q.get_device().get_info<sycl::info::device::max_work_group_size>();
+#endif
     }
+
 }

@@ -3,15 +3,6 @@
 #include "../../intrinsics.hpp"
 #include "common.h"
 
-#ifndef ATOMIC_REF_NAMESPACE
-#ifdef USING_DPCPP
-#define ATOMIC_REF_NAMESPACE sycl::ext::oneapi
-#else
-#define ATOMIC_REF_NAMESPACE sycl
-#endif
-#endif
-
-
 namespace parallel_primitives::decoupled_lookback_internal {
 
     using internal::get_init;
@@ -42,10 +33,10 @@ namespace parallel_primitives::decoupled_lookback_internal {
             data<T, func> data{};
         } packed{};
 
-        using atomic_ref_t = ATOMIC_REF_NAMESPACE::atomic_ref<
+        using atomic_ref_t = sycl::atomic_ref<
                 storage_type,
-                ATOMIC_REF_NAMESPACE::memory_order::relaxed,
-                ATOMIC_REF_NAMESPACE::memory_scope::work_group,
+                sycl::memory_order::relaxed,
+                sycl::memory_scope::work_group,
                 sycl::access::address_space::global_space
         >;
 
@@ -119,6 +110,7 @@ namespace parallel_primitives::decoupled_lookback_internal {
             status_flag_ = status::prefix_available;
             //      sycl::ext::prefetch_constant(this);
         }
+
 
         static T run_look_back(volatile partition_descriptor_impl *ptr_base, const size_t &partition_id) {
             T tmp = get_init<T, func>();

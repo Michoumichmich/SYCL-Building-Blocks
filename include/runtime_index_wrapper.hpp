@@ -81,7 +81,6 @@ namespace sycl::ext {
 #define RUNTIME_IDX_STORE_SWITCH_14_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_13_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(13u, arr, val)
 #define RUNTIME_IDX_STORE_SWITCH_15_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_14_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(14u, arr, val)
 #define RUNTIME_IDX_STORE_SWITCH_16_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_15_CASES(arr, val) RUNTIME_IDX_STORE_SWITCH_CASE(15u, arr, val)
-
 #ifdef RUNTIME_IDX_STORE_USE_SWITCH
 #define GENERATE_IDX_STORE(ID, arr, idx, val)            \
 switch(idx){                                            \
@@ -96,18 +95,15 @@ switch(idx){                                            \
 }
 #endif
 
-
         template<typename T, typename array_t, int N, int idx_max = N - 1>
         static inline constexpr void registerized_store(array_t &arr, const uint &i, const T &val) noexcept {
             static_assert(idx_max >= 0 && idx_max < N);
-
 #ifdef CONSTEVAL_REGISTER_SHORTCUT
             if (__builtin_is_constant_evaluated()) {
                 arr[i] = val;
                 return;
             }
 #endif
-
             if constexpr (idx_max == 0 || N == 1) {
                 arr[0] = val;
             } else if constexpr (N == 2) {
@@ -197,31 +193,40 @@ switch(idx){                                            \
             }
         }
 
-        template<typename T, typename array_t, size_t N, int end = N - 1, int start = 0>
-        [[nodiscard]] static inline constexpr T registerized_dicochotomic_read(const array_t &array, const uint &idx) noexcept {
-            static_assert(start <= end);
+        template<typename T, typename array_t, size_t N, int start = 0, int end = N - 1>
+        [[nodiscard]] static inline constexpr T registerized_dicochotomic_read(const array_t &array, const int &idx) noexcept {
+            static_assert(N > 0);
+            static_assert(start <= end && start >= 0);
 
 #ifdef CONSTEVAL_REGISTER_SHORTCUT
             if (__builtin_is_constant_evaluated()) {
                 return array[idx];
             }
 #endif
-
             if constexpr (end == start) {
+                printf("Accessing end %d \n", end);
                 return array[end];
+            } else if constexpr (end == start + 1) {
+                if (idx == start) {
+                    printf("Accessing start %d \n", start);
+                    return array[start];
+                } else {
+                    printf("Accessing end2 %d \n", end);
+                    return array[end];
+                }
             } else {
                 constexpr int middle = (start + end) / 2;
                 static_assert(middle >= 0 && middle < N);
                 if (idx == middle) {
+                    printf("Accessing middle %d \n", middle);
                     return array[middle];
                 } else if (idx > middle) {
-                    return registerized_dicochotomic_read<T, array_t, N, end, middle + 1>(array, idx);
+                    return registerized_dicochotomic_read<T, array_t, N, middle + 1, end>(array, idx);
                 } else {
-                    return registerized_dicochotomic_read<T, array_t, N, end - 1, start>(array, idx);
+                    return registerized_dicochotomic_read<T, array_t, N, start, middle - 1>(array, idx);
                 }
             }
         }
-
     }
 
 
@@ -271,7 +276,6 @@ switch(idx){                                            \
         return registerizer_internal::registerized_dicochotomic_read<T, const T(&)[N], N>(arr, i);
     }
 
-
 /**
  * STD::ARRAY
  */
@@ -305,20 +309,20 @@ switch(idx){                                            \
 /**
  * SYCL VEC
  */
-    template<template<typename, int> class vec_t, typename T, int N, typename U>
-    static inline constexpr U runtime_index_wrapper(vec_t<T, N> &vec, const uint &i, const U &val) {
-        registerizer_internal::registerized_store<T, vec_t<T, N>, N>(vec, i, (T) val);
+    template<typename T, auto N, typename U>
+    static inline constexpr U runtime_index_wrapper(sycl::vec<T, N> &vec, const uint &i, const U &val) {
+        registerizer_internal::registerized_store<T, sycl::vec<T, N>, N>(vec, i, val);
         return val;
     }
 
-    template<template<typename, int> class vec_t, typename T, int N>
-    [[nodiscard]] static inline constexpr T runtime_index_wrapper(const vec_t<T, N> &vec, const uint &i) {
-        return registerizer_internal::registerized_read<T, vec_t<T, N>, N>(vec, i);
+    template<typename T, auto N>
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper(const sycl::vec<T, N> &vec, const uint &i) {
+        return registerizer_internal::registerized_read<T, sycl::vec<T, N>, N>(vec, i);
     }
 
-    template<template<typename, int> class vec_t, typename T, int N>
-    [[nodiscard]] static inline constexpr T runtime_index_wrapper_log(const vec_t<T, N> &vec, const uint &i) {
-        return registerizer_internal::registerized_dicochotomic_read<T, vec_t<T, N>, N>(vec, i);
+    template<typename T, auto N>
+    [[nodiscard]] static inline constexpr T runtime_index_wrapper_log(const sycl::vec<T, N> &vec, const uint &i) {
+        return registerizer_internal::registerized_dicochotomic_read<T, sycl::vec<T, N>, N>(vec, i);
     }
 
 /**
@@ -341,10 +345,9 @@ switch(idx){                                            \
         return registerizer_internal::registerized_dicochotomic_read<size_t, vec_t<N>, N>(vec, i);
     }
 
-
-    /**
-     * Constructs an accessor that can be used with dynnamic indices at runtime
-     */
+/**
+ * Constructs an accessor that can be used with dynnamic indices at runtime
+ */
     template<class array_t>
     class runtime_wrapper {
     private:

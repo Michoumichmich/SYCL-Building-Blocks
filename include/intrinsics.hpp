@@ -128,9 +128,12 @@ namespace sycl::ext {
         return reverse_num;
     }
 
+#ifdef SYCL_IMPLEMENTATION_HIPSYCL
     uint32_t upsample(const uint16_t &hi, const uint16_t &lo) {
         return (uint32_t(hi) << 16) + lo;
     }
+#endif
+
 
     template<typename T>
     static inline std::enable_if_t<std::is_same_v<T, std::byte> || std::is_same_v<T, uint8_t>, uint32_t>

@@ -28,7 +28,11 @@ size_t benchmark_runtime_bit_array(size_t size) {
 #pragma unroll
             for (int j = 0; j < array_size / 2; ++j) {
                 arr.swap(j, array_size - j - 1);
-                //arr.swap(array_size - j - 1, j);
+            }
+
+#pragma unroll
+            for (int j = 0; j < array_size / 2; ++j) {
+                arr.swap(j, array_size - j - 1);
             }
 
             arr.write(write_idx, arr[read_idx]);
@@ -58,7 +62,11 @@ size_t benchmark_runtime_bit_array_stack(size_t size) {
 #pragma unroll
             for (int j = 0; j < array_size / 2; ++j) {
                 std::swap(arr[j], arr[array_size - j - 1]);
-                //std::swap(arr[array_size - j - 1], arr[j]);
+            }
+
+#pragma unroll
+            for (int j = 0; j < array_size / 2; ++j) {
+                std::swap(arr[j], arr[array_size - j - 1]);
             }
 
             arr[write_idx] = arr[read_idx];

@@ -22,13 +22,6 @@
 #include <sycl/sycl.hpp>
 #include <numeric>
 
-#ifndef ATOMIC_REF_NAMESPACE
-#ifdef USING_DPCPP //SYCL_IMPLEMENTATION_ONEAPI
-#define ATOMIC_REF_NAMESPACE sycl::ext::oneapi
-#else
-#define ATOMIC_REF_NAMESPACE sycl
-#endif
-#endif
 
 template<int dim>
 class nd_range_barrier {
@@ -118,10 +111,10 @@ public:
         this_item.barrier(sycl::access::fence_space::local_space);
         /* Choosing one work item to perform the work */
         if (this_item.get_local_linear_id() == 0) {
-            using atomic_ref_t = ATOMIC_REF_NAMESPACE::atomic_ref<
+            using atomic_ref_t = sycl::atomic_ref<
                     mask_t,
-                    ATOMIC_REF_NAMESPACE::memory_order::relaxed, //TODO acq_rel
-                    ATOMIC_REF_NAMESPACE::memory_scope::device,
+                    sycl::memory_order::relaxed, //TODO acq_rel
+                    sycl::memory_scope::device,
                     sycl::access::address_space::global_space
             >;
             atomic_ref_t groups_waiting_ref(groups_waiting_);
@@ -157,13 +150,17 @@ public:
 template<typename KernelName>
 sycl::nd_range<1> get_max_occupancy(sycl::queue &q, size_t local_mem = 0) {
     (void) local_mem;
+#ifndef SYCL_IMPLEMENTATION_HIPSYCL
     sycl::kernel_id id = sycl::get_kernel_id<KernelName>();
     auto kernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(q.get_context()).get_kernel(id);
-    // size_t private_mem_size = kernel.get_info<sycl::info::kernel_device_specific::private_mem_size>(q.get_device());
+    size_t register_count = kernel.get_info<sycl::info::kernel_device_specific::ext_codeplay_num_regs>(q.get_device());
     // size_t registers = private_mem_size / 2; // find a way to get that value
     // printf("Kernel private mem size: %lu", private_mem_size);
 
     size_t max_items = kernel.get_info<sycl::info::kernel_device_specific::work_group_size>(q.get_device());
+#else
+    size_t max_items = (uint32_t) q.get_device().get_info<sycl::info::device::max_work_group_size>();
+#endif
     size_t max_groups = (uint32_t) q.get_device().get_info<sycl::info::device::max_compute_units>();
 
     return {sycl::range<1>(max_items * max_groups), sycl::range<1>(max_items)};
