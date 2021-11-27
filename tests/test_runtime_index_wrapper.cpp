@@ -4,7 +4,7 @@
 
 using sycl::ext::runtime_index_wrapper;
 using sycl::ext::runtime_index_wrapper_log;
-constexpr uint size = 30;
+constexpr uint size = 64;
 
 /**
  * Size deduced
@@ -129,7 +129,6 @@ void check_sycl_vector_log() {
         runtime_index_wrapper(arr, i, i);
     }
     for (uint i = 0; i < 16; ++i) {
-        printf("Reading %d \n", i);
         ASSERT_EQ(runtime_index_wrapper_log(arr, i), i);
     }
 

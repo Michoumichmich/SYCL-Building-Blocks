@@ -204,21 +204,17 @@ switch(idx){                                            \
             }
 #endif
             if constexpr (end == start) {
-                printf("Accessing end %d \n", end);
                 return array[end];
             } else if constexpr (end == start + 1) {
                 if (idx == start) {
-                    printf("Accessing start %d \n", start);
                     return array[start];
                 } else {
-                    printf("Accessing end2 %d \n", end);
                     return array[end];
                 }
             } else {
                 constexpr int middle = (start + end) / 2;
                 static_assert(middle >= 0 && middle < N);
                 if (idx == middle) {
-                    printf("Accessing middle %d \n", middle);
                     return array[middle];
                 } else if (idx > middle) {
                     return registerized_dicochotomic_read<T, array_t, N, middle + 1, end>(array, idx);
